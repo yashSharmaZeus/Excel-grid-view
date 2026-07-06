@@ -8,7 +8,7 @@ interface CellData {
 
 class ExcelGrid {
   private _canvas: HTMLCanvasElement;
-  // private input = document.createElement('input');
+
   private _ctx: CanvasRenderingContext2D;
   private _data: Map<string, CellData> = new Map();
 
@@ -20,19 +20,17 @@ class ExcelGrid {
   private _scrollX: number = 0;
   private _scrollY: number = 0;
 
+  private _headerHeight: number = 25;
+  private _headerWidth: number = 50;
+
   private _input: HTMLInputElement | null = null;
   private _editingCell: { row: number; col: number } | null = null;
   private _selectedCell: { row: number; col: number } | null = null;
 
-  // private _rowHeight = new Map<number, number>();
-  // private _colWidth = new Map<number, number>();
-  // private _colOffset: number[] = [];
-  // private _rowOverRideOffsets: { row: number; cumulativeDelta: number }[] = []
-  // private _resizing: { type: 'col' | 'row'; index: number; startPos: number; startSize: number } | null = null;
-  // private _HoverResize: { type: 'col' | 'row'; index: number } | null = null;
-
-  // private _activeInputListener: ((e: KeyboardEvent) => void) | null = null;
-  // private _activeBlurListener: (() => void) | null = null;
+  private _rowHeights = new Map<number, number>();
+  private _colWidths = new Map<number, number>();
+  private _resizing: { type: 'col' | 'row'; index: number; startPos: number; startSize: number } | null = null;
+  private readonly RESIZE_MARGIN = 5;
 
   constructor(canvasId: string, rowCount: number, columnCunt: number) {
     this._canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -40,93 +38,59 @@ class ExcelGrid {
     this._rowCount = rowCount;
     this._columnCunt = columnCunt;
 
-    // this.rebuildColOffsets();
     this.canvasEventsBinding();
     this.resizeCanvas();
     this.renderCanvas();
   }
 
-  // private getColWidth(col: number) {
-  //   return this._colWidth.get(col) ?? this._defaultColWidth;
-  // }
+  private getColWidth(col: number) {
+    return this._colWidths.get(col) ?? this._defaultColWidth;
+  }
 
-  // private getRowHeight(col: number) {
-  //   return this._rowHeight.get(col) ?? this._defaultColWidth;
-  // }
+  private getRowHeight(col: number) {
+    return this._rowHeights.get(col) ?? this._defaultRowHeight;
+  }
 
-  // private getColumnX(col: number): number {
-  //   let x = 0;
-  //   for (let i = 0; i < col; i++) {
-  //     x += this.getColWidth(i);
-  //   }
-  //   return x;
-  // }
+  private getColX(col: number): number {
+    let x = 0;
+    for (let i = 0; i < col; i++) {
+      x += this.getColWidth(i);
+    }
+    return x;
+  }
 
-  // private getRowY(row: number): number {
-  //   let y = 0;
-  //   for (let i = 0; i < row; i++) {
-  //     y += this.getRowHeight(i);
-  //   }
-  //   return y;
-  // }
+  private getRowY(row: number): number {
+    let y = 0;
+    for (let i = 0; i < row; i++) {
+      y += this.getRowHeight(i);
+    }
+    return y;
+  }
 
-  // private rebuildColOffsets(): void {
-  //   const offsets = new Array<number>(this._columnCunt + 1);
-  //   offsets[0] = 0;
-  //   for (let c = 0; c < this._columnCunt; c++) {
-  //     offsets[c + 1] = offsets[c]! + this.getColWidth(c);
-  //   }
-  //   this._colOffset = offsets;
-  // }
+  private getResizingTarget(x: number, y: number): { type: 'col' | 'row'; index: number } | null {
+    const targetX = x + this._scrollX;
+    const targetY = y + this._scrollY;
 
-  // private rebuildRowOverrideOffsets(): void {
-  //   const rows = Array.from(this._rowHeight.keys()).sort((a, b) => a - b);
-  //   let cumulativeDelta = 0;
-  //   const result: { row: number; cumulativeDelta: number }[] = [];
-  //   for (const row of rows) {
-  //     const delta = this._rowHeight.get(row)! - this._defaultRowHeight;
-  //     cumulativeDelta += delta;
-  //     result.push({ row, cumulativeDelta });
-  //   }
-  //   this._rowOverRideOffsets = result;
-  // }
-
-  // private getRowTop(row: number): number {
-  //   let base = row * this._defaultRowHeight;
-
-  //   let lo = 0, hi = this._rowOverRideOffsets.length;
-  //   while (lo < hi) {
-  //     const mid = (lo + hi) >> 1;
-  //     if (this._rowOverRideOffsets[mid]!.row < row) lo = mid + 1;
-  //     else hi = mid;
-  //   }
-  //   if (lo > 0) base += this._rowOverRideOffsets[lo - 1]!.cumulativeDelta;
-  //   return base;
-  // }
-
-  // private rowAtY(y: number): number {
-  //   let row = Math.floor(y / this._defaultRowHeight);
-  //   while (this.getRowTop(row) > y) row--;
-  //   while (this.getRowTop(row + 1) <= y) row++;
-  //   return row;
-  // }
-
-  // private colAtX(x: number): number {
-  //   let lo = 0, hi = this._colOffset.length - 1;
-  //   while (lo < hi) {
-  //     const mid = (lo + hi + 1) >> 1;
-  //     if (this._colOffset[mid]! <= x) lo = mid;
-  //     else hi = mid - 1;
-  //   }
-  //   return lo;
-  // }
-
+    let accX = 0;
+    for (let c = 0; c < this._columnCunt; c++) {
+      accX += this.getColWidth(c);
+      if (Math.abs(targetX - accX) <= this.RESIZE_MARGIN) return { type: 'col', index: c };
+      if (targetX < accX) break;
+    }
+    let accY = 0;
+    for (let r = 0; r < this._rowCount; r++) {
+      accY += this.getRowHeight(r);
+      if (Math.abs(targetY - accY) <= this.RESIZE_MARGIN) return { type: 'row', index: r };
+      if (targetY < accY) break;
+    }
+    return null;
+  }
 
   private createInputBox(): HTMLInputElement {
     const input = document.createElement('input');
     input.style.padding = '0';
     input.style.margin = '0';
-    input.style.border = 'none';
+    input.style.border = '2px solid #bc04ff';
     input.style.position = "absolute";
     this._canvas.parentElement?.appendChild(input);
 
@@ -147,20 +111,29 @@ class ExcelGrid {
     return input;
   }
 
+  private getData(row:number,col:number):CellData|null{
+    return this._data.get(`${row},${col}`)||null;
+  }
+
+  
+
   private startEdit(row: number, col: number): void {
     if (!this._input) {
       this._input = this.createInputBox();
     }
 
-    const x = (col * this._defaultColWidth) - this._scrollX;
-    const y = (row * this._defaultRowHeight) - this._scrollY;
+    const x = this.getColX(col) - this._scrollX;
+    const y = this.getRowY(row) - this._scrollY;
+    const w = this.getColWidth(col);
+    const h = this.getRowHeight(row);
+
 
     const cellData = this._data.get(`${row},${col}`);
 
-    this._input.style.left = x + 'px';
-    this._input.style.top = y + 'px';
-    this._input.style.width = this._defaultColWidth + 'px';
-    this._input.style.height = this._defaultRowHeight + 'px';
+    this._input.style.left = (x + this._headerWidth) + 'px';
+    this._input.style.top = (y + this._headerHeight) + 'px';
+    this._input.style.width = w + 'px';
+    this._input.style.height = h + 'px';
     this._input.style.display = "block";
     this._input.value = cellData?.value ?? " ";
 
@@ -206,62 +179,127 @@ class ExcelGrid {
     this._ctx.clearRect(0, 0, width, height);
     this._ctx.save();
 
-    const startCol = Math.floor(this._scrollX / this._defaultColWidth);
-    const endCol = Math.min(this._columnCunt - 1, Math.ceil((this._scrollX + width) / this._defaultColWidth));
-    const startRow = Math.floor(this._scrollY / this._defaultRowHeight);
-    const endRow = Math.min(this._rowCount - 1, Math.ceil((this._scrollY + height) / this._defaultRowHeight));
-    // const startCol = this.colAtX(this._scrollX)
-    // const endCol = this.colAtX(this._scrollX + width)
-    // const startRow = this.rowAtY(this._scrollY)
-    // const endRow = this.colAtX(this._scrollY + height)
-    for (let r = startRow; r <= endRow; r++) {
-      for (let c = startCol; c <= endCol; c++) {
-        const x = (c * this._defaultColWidth) - this._scrollX;
-        const y = (r * this._defaultRowHeight) - this._scrollY;
+    let startCol = 0, accX = 0;
+    while (accX + this.getColWidth(startCol) < this._scrollX && startCol < this._columnCunt - 1) {
+      accX += this.getColWidth(startCol);
+      startCol++;
+    }
+    let endCol = startCol, x2 = accX;
+    while (x2 < this._scrollX + width && endCol < this._columnCunt - 1) {
+      x2 += this.getColWidth(endCol);
+      endCol++;
+    }
 
-        this._ctx.strokeStyle = "#aeaeae";
-        this._ctx.lineWidth = 1;
-        this._ctx.strokeRect(Math.floor(x) + 0.5, Math.floor(y) + 0.5, this._defaultColWidth, this._defaultRowHeight);
-
-        const cellData = this._data.get(`${r},${c}`);
-        if (cellData && cellData.value) {
-          this._ctx.fillStyle = '#000000';
-          this._ctx.fillText(
-            cellData.value,
-            x + 5,
-            y + (this._defaultRowHeight / 2),
-            this._defaultColWidth - 10
-          );
-        }
-      }
+    let startRow = 0, accY = 0;
+    while (accY + this.getRowHeight(startRow) < this._scrollY && startRow < this._rowCount - 1) {
+      accY += this.getRowHeight(startRow);
+      startRow++;
+    }
+    let endRow = startRow, y2 = accY;
+    while (y2 < this._scrollY + height && endRow < this._rowCount - 1) {
+      y2 += this.getRowHeight(endRow);
+      endRow++;
     }
 
     if (this._selectedCell) {
-      const selectX = (this._selectedCell.col * this._defaultColWidth) - this._scrollX;
-      const selectY = (this._selectedCell.row * this._defaultRowHeight) - this._scrollY;
+      const w = this.getColWidth(this._selectedCell.col);
+      const h = this.getRowHeight(this._selectedCell.row);
+
+      const selectX = this.getColX(this._selectedCell.col) + this._headerWidth - this._scrollX;
+      const selectY = this.getRowY(this._selectedCell.row) + this._headerHeight - this._scrollY;
 
       this._ctx.strokeStyle = '#bc04ff';
       this._ctx.fillStyle = '#fb26ff10'
-      this._ctx.fillRect(selectX, selectY, this._defaultColWidth, this._defaultRowHeight)
+      this._ctx.fillRect(selectX, selectY, w, h)
       this._ctx.lineWidth = 2;
-      this._ctx.strokeRect(selectX, selectY, this._defaultColWidth, this._defaultRowHeight);
+      this._ctx.strokeRect(selectX, selectY, w, h);
       if (this._input) {
         this._input.style.left = selectX + 'px';
         this._input.style.top = selectY + 'px';
       }
     }
+
+    for (let r = startRow; r <= endRow; r++) {
+      const y = this.getRowY(r) + this._headerHeight - this._scrollY;
+      const h = this.getRowHeight(r);
+
+      for (let c = startCol; c <= endCol; c++) {
+
+        const x = this.getColX(c) + this._headerWidth - this._scrollX;
+        const w = this.getColWidth(c);
+
+        this._ctx.strokeStyle = "#aeaeae";
+        this._ctx.lineWidth = 1;
+        this._ctx.strokeRect(Math.floor(x) + 0.5, Math.floor(y) + 0.5, w, h);
+
+        const cellData = this._data.get(`${r},${c}`);
+        if (cellData && cellData.value) {
+          this._ctx.fillStyle = '#000000';
+          this._ctx.fillText(cellData.value, x + 5, y + (h / 2), w - 10);
+        }
+      }
+
+
+      this._ctx.fillStyle = '#eacef6'
+      this._ctx.fillRect(0, Math.floor(y) + 0.5, this._headerWidth, h)
+      this._ctx.strokeStyle = "#000000";
+      this._ctx.lineWidth = 1;
+      this._ctx.fillStyle = '#000000'
+      this._ctx.strokeRect(0, Math.floor(y) + 0.5, this._headerWidth, h);
+      this._ctx.fillText((r + 1).toString(), 20, y + (this._headerHeight / 2));
+    }
+
+    for (let c = startCol; c <= endCol; c++) {
+      const x = this.getColX(c) + this._headerWidth - this._scrollX;
+      const w = this.getColWidth(c);
+
+      console.log(c)
+      this._ctx.fillStyle = '#eacef6'
+      this._ctx.fillRect(Math.floor(x) + 0.5, 0, w, this._headerHeight)
+      this._ctx.strokeStyle = "#000000";
+      this._ctx.lineWidth = 1;
+      this._ctx.fillStyle = '#000000'
+      this._ctx.strokeRect(Math.floor(x) + 0.5, 0, w, this._headerHeight);
+      let ch: string;
+      if (c < 26) {
+        ch = String.fromCharCode(c + 65);
+      } else {
+        let remainder = c % 26;
+        ch = String.fromCharCode((c / 26) + 64) + String.fromCharCode(remainder + 65);
+      }
+      this._ctx.fillText(ch, x + 5, (this._headerHeight / 2));
+    }
+
+    this._ctx.fillStyle = '#dfa9ff'
+    this._ctx.fillRect(0, 0, this._headerWidth, this._headerHeight)
+    this._ctx.strokeRect(0, 0, this._headerWidth, this._headerHeight);
+
   }
 
   private getSelectedCell(x: number, y: number): { row: number, col: number } | null {
-    const selectedCellX = x + this._scrollX;
-    const selectedCellY = y + this._scrollY;
+    const targetX = x + this._scrollX;
+    const targetY = y + this._scrollY;
 
-    const col = Math.floor(selectedCellX / this._defaultColWidth)
-    const row = Math.floor(selectedCellY / this._defaultRowHeight)
-    if (row >= 0 && row < this._rowCount && col >= 0 && col < this._columnCunt) {
-      return { row, col };
+    let col = -1, accX = 0;
+    for (let c = 0; c < this._columnCunt; c++) {
+      const w = this.getColWidth(c);
+      if (targetX >= accX && targetX < accX + w) {
+        col = c;
+        break
+      }
+      accX += w;
     }
-    return null;
+    let row = -1, accY = 0;
+    for (let r = 0; r < this._rowCount; r++) {
+      const h = this.getRowHeight(r);
+      if (targetY >= accY && targetY < accY + h) {
+        row = r;
+        break
+      }
+      accY += h;
+    }
+    return (row >= 0 && col >= 0) ? { row, col } : null;
+
   }
 
   private canvasEventsBinding(): void {
@@ -278,8 +316,18 @@ class ExcelGrid {
         this.commitEdit();
       }
       const rect = this._canvas.getBoundingClientRect();
-      const mouseX = event.clientX - rect.left;
-      const mouseY = event.clientY - rect.top;
+      const mouseX = event.clientX - this._headerWidth - rect.left;
+      const mouseY = event.clientY - this._headerHeight - rect.top;
+
+      const target = this.getResizingTarget(mouseX, mouseY);
+      if (target) {
+        const startSize = target.type === 'col'
+          ? this.getColWidth(target.index)
+          : this.getRowHeight(target.index);
+        const startPos = target.type === 'col' ? mouseX : mouseY;
+        this._resizing = { type: target.type, index: target.index, startPos, startSize };
+        return;
+      }
 
       const cell = this.getSelectedCell(mouseX, mouseY);
       if (cell) {
@@ -291,8 +339,8 @@ class ExcelGrid {
     this._canvas.addEventListener("dblclick", (event) => {
 
       const rect = this._canvas.getBoundingClientRect();
-      const mouseX = event.clientX - rect.left;
-      const mouseY = event.clientY - rect.left;
+      const mouseX = event.clientX - this._headerWidth - rect.left;
+      const mouseY = event.clientY - this._headerHeight - rect.left;
 
       const cell = this.getSelectedCell(mouseX, mouseY);
       if (cell) {
@@ -301,6 +349,35 @@ class ExcelGrid {
       }
     })
 
+    this._canvas.addEventListener("mousemove", (event) => {
+      const rect = this._canvas.getBoundingClientRect();
+      const mouseX = event.clientX - this._headerWidth - rect.left;
+      const mouseY = event.clientY - this._headerHeight - rect.top;
+
+      if (this._resizing) {
+        const delta = this._resizing.type === 'col'
+          ? mouseX - this._resizing.startPos
+          : mouseY - this._resizing.startPos;
+        const newSize = Math.max(20, this._resizing.startSize + delta);
+
+        if (this._resizing.type === 'col') {
+          this._colWidths.set(this._resizing.index, newSize);
+        }
+        if (this._resizing.type === 'row') {
+          this._rowHeights.set(this._resizing.index, newSize);
+        }
+        this.renderCanvas();
+        return;
+      }
+      const target = this.getResizingTarget(mouseX, mouseY);
+      this._canvas.style.cursor = target
+        ? (target.type === 'col' ? 'col-resize' : 'row-resize')
+        : 'cell';
+    });
+
+    window.addEventListener("mouseup", () => {
+      this._resizing = null;
+    });
     window.addEventListener("resize", () => {
       this.resizeCanvas();
       this.renderCanvas();
@@ -312,13 +389,9 @@ class ExcelGrid {
   public setCellValue(row: number, col: number, value: string): void {
     const key = `${row},${col}`;
     this._data.set(key, { value });
-    // console.log(row, "  ", col, "  ", value);
-    // console.log(this._data.get(key));
-    // // this.renderCanvas();
   }
 
   public refresh(): void {
-    console.log("rendering!!!!!!!!!!!!!!!!!")
     this.renderCanvas();
   }
 }
