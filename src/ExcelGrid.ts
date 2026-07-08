@@ -1,19 +1,23 @@
-interface CellData {
-  value: string;
-  style?: {
-    background: string;
-    color: string;
-  }
-}
+import { Data } from "./Data.js";
+import { Render } from "./Render.js";
+import { HistoryManager, SetCellCommand } from "./History.js";
+import { EventManager } from "./EventManager.js";
+import type { GridController } from "./GridController.js";
+import { FormulaEngine } from "./FormulaEngine.js";
+import type { CellData } from "./Type.js";
 
-class ExcelGrid {
+
+class ExcelGrid implements GridController {
   private _canvas: HTMLCanvasElement;
 
   private _ctx: CanvasRenderingContext2D;
-  private _data: Map<string, CellData> = new Map();
+
+  private data: Data;
+  private _engine: FormulaEngine;
+  private history = new HistoryManager();
 
   private _rowCount: number;
-  private _columnCunt: number;
+  private _columnCount: number;
   private _defaultRowHeight: number = 25;
   private _defaultColWidth: number = 100;
 
@@ -32,15 +36,36 @@ class ExcelGrid {
   private _resizing: { type: 'col' | 'row'; index: number; startPos: number; startSize: number } | null = null;
   private readonly RESIZE_MARGIN = 5;
 
-  constructor(canvasId: string, rowCount: number, columnCunt: number) {
+  private renderer = new Render();
+  public isDragging = false;
+  public selectedFirst = {row: -1,col:-1};
+  public selectedLast = {row: -1,col:-1};
+
+  constructor(canvasId: string, rowCount: number, columnCunt: number, data: Data) {
+    this.data = data;
     this._canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     this._ctx = this._canvas.getContext('2d')!;
     this._rowCount = rowCount;
-    this._columnCunt = columnCunt;
+    this._columnCount = columnCunt;
+    this._engine = new FormulaEngine(this.data)
 
-    this.canvasEventsBinding();
+
+    new EventManager(this._canvas, this, this._headerWidth, this._headerHeight).bind();
     this.resizeCanvas();
     this.renderCanvas();
+  }
+
+  public getScrollX(): number {
+    return this._scrollX;
+  }
+
+  public getScrollY(): number {
+    return this._scrollY;
+  }
+
+  public setScroll(x: number, y: number): void {
+    this._scrollX = x;
+    this._scrollY = y;
   }
 
   private getColWidth(col: number) {
@@ -66,13 +91,42 @@ class ExcelGrid {
     }
     return y;
   }
+  public startResize(type: 'col' | 'row', index: number, x: number, y: number): void {
+    const startSize = type === 'col' ? this.getColWidth(index) : this.getRowHeight(index);
+    const startPos = type === 'col' ? x : y;
+    this._resizing = { type, index, startPos, startSize };
+  }
 
-  private getResizingTarget(x: number, y: number): { type: 'col' | 'row'; index: number } | null {
+  public updateResize(x: number, y: number): void {
+    if (!this._resizing) return;
+    const delta = this._resizing.type === 'col'
+      ? x - this._resizing.startPos
+      : y - this._resizing.startPos;
+    const newSize = Math.max(20, this._resizing.startSize + delta);
+
+    if (this._resizing.type === 'col') {
+      this._colWidths.set(this._resizing.index, newSize);
+    } else {
+      this._rowHeights.set(this._resizing.index, newSize);
+    }
+
+  }
+
+  public endResize(): void {
+    this._resizing = null;
+  }
+
+  public isResizing(): boolean {
+    return this._resizing !== null;
+  }
+
+
+  public getResizingTarget(x: number, y: number): { type: 'col' | 'row'; index: number } | null {
     const targetX = x + this._scrollX;
     const targetY = y + this._scrollY;
 
     let accX = 0;
-    for (let c = 0; c < this._columnCunt; c++) {
+    for (let c = 0; c < this._columnCount; c++) {
       accX += this.getColWidth(c);
       if (Math.abs(targetX - accX) <= this.RESIZE_MARGIN) return { type: 'col', index: c };
       if (targetX < accX) break;
@@ -86,11 +140,34 @@ class ExcelGrid {
     return null;
   }
 
+  public selectCell(row: number, col: number): void {
+    this._selectedCell = { row, col };
+  }
+  public isEditing(): boolean {
+    return this._editingCell !== null;
+  }
+
+  public getInputElement(): HTMLInputElement | null {
+    return this._input;
+  }
+
+  public undo(): void {
+    this.history.undo();
+  }
+
+  public redo(): void {
+    this.history.redo();
+  }
+
+  public handleWindowResize(): void {
+    this.resizeCanvas();
+  }
+
   private createInputBox(): HTMLInputElement {
     const input = document.createElement('input');
     input.style.padding = '0';
     input.style.margin = '0';
-    input.style.border = '2px solid #bc04ff';
+    input.style.border = '2px solid #04ffab';
     input.style.position = "absolute";
     this._canvas.parentElement?.appendChild(input);
 
@@ -111,13 +188,8 @@ class ExcelGrid {
     return input;
   }
 
-  private getData(row:number,col:number):CellData|null{
-    return this._data.get(`${row},${col}`)||null;
-  }
-
-  
-
-  private startEdit(row: number, col: number): void {
+  public startEdit(row: number, col: number): void {
+    this._editingCell = { row, col };
     if (!this._input) {
       this._input = this.createInputBox();
     }
@@ -128,7 +200,8 @@ class ExcelGrid {
     const h = this.getRowHeight(row);
 
 
-    const cellData = this._data.get(`${row},${col}`);
+
+    const cellData = this.data.getData(row, col);
 
     this._input.style.left = (x + this._headerWidth) + 'px';
     this._input.style.top = (y + this._headerHeight) + 'px';
@@ -141,7 +214,7 @@ class ExcelGrid {
     this._input.select();
   }
 
-  private commitEdit(): void {
+  public commitEdit(): void {
     if (!this._editingCell || !this._input) return;
 
     const { row, col } = this._editingCell;
@@ -153,7 +226,7 @@ class ExcelGrid {
     this._editingCell = null;
   }
 
-  private cancelEdit(): void {
+  public cancelEdit(): void {
     if (!this._input) return;
 
     this._input.style.display = 'none';
@@ -173,115 +246,35 @@ class ExcelGrid {
   }
 
   private renderCanvas(): void {
-    const width = this._canvas.clientWidth;
-    const height = this._canvas.clientHeight;
-
-    this._ctx.clearRect(0, 0, width, height);
-    this._ctx.save();
-
-    let startCol = 0, accX = 0;
-    while (accX + this.getColWidth(startCol) < this._scrollX && startCol < this._columnCunt - 1) {
-      accX += this.getColWidth(startCol);
-      startCol++;
-    }
-    let endCol = startCol, x2 = accX;
-    while (x2 < this._scrollX + width && endCol < this._columnCunt - 1) {
-      x2 += this.getColWidth(endCol);
-      endCol++;
-    }
-
-    let startRow = 0, accY = 0;
-    while (accY + this.getRowHeight(startRow) < this._scrollY && startRow < this._rowCount - 1) {
-      accY += this.getRowHeight(startRow);
-      startRow++;
-    }
-    let endRow = startRow, y2 = accY;
-    while (y2 < this._scrollY + height && endRow < this._rowCount - 1) {
-      y2 += this.getRowHeight(endRow);
-      endRow++;
-    }
-
-    if (this._selectedCell) {
-      const w = this.getColWidth(this._selectedCell.col);
-      const h = this.getRowHeight(this._selectedCell.row);
-
-      const selectX = this.getColX(this._selectedCell.col) + this._headerWidth - this._scrollX;
-      const selectY = this.getRowY(this._selectedCell.row) + this._headerHeight - this._scrollY;
-
-      this._ctx.strokeStyle = '#bc04ff';
-      this._ctx.fillStyle = '#fb26ff10'
-      this._ctx.fillRect(selectX, selectY, w, h)
-      this._ctx.lineWidth = 2;
-      this._ctx.strokeRect(selectX, selectY, w, h);
-      if (this._input) {
-        this._input.style.left = selectX + 'px';
-        this._input.style.top = selectY + 'px';
-      }
-    }
-
-    for (let r = startRow; r <= endRow; r++) {
-      const y = this.getRowY(r) + this._headerHeight - this._scrollY;
-      const h = this.getRowHeight(r);
-
-      for (let c = startCol; c <= endCol; c++) {
-
-        const x = this.getColX(c) + this._headerWidth - this._scrollX;
-        const w = this.getColWidth(c);
-
-        this._ctx.strokeStyle = "#aeaeae";
-        this._ctx.lineWidth = 1;
-        this._ctx.strokeRect(Math.floor(x) + 0.5, Math.floor(y) + 0.5, w, h);
-
-        const cellData = this._data.get(`${r},${c}`);
-        if (cellData && cellData.value) {
-          this._ctx.fillStyle = '#000000';
-          this._ctx.fillText(cellData.value, x + 5, y + (h / 2), w - 10);
-        }
-      }
-
-
-      this._ctx.fillStyle = '#eacef6'
-      this._ctx.fillRect(0, Math.floor(y) + 0.5, this._headerWidth, h)
-      this._ctx.strokeStyle = "#000000";
-      this._ctx.lineWidth = 1;
-      this._ctx.fillStyle = '#000000'
-      this._ctx.strokeRect(0, Math.floor(y) + 0.5, this._headerWidth, h);
-      this._ctx.fillText((r + 1).toString(), 20, y + (this._headerHeight / 2));
-    }
-
-    for (let c = startCol; c <= endCol; c++) {
-      const x = this.getColX(c) + this._headerWidth - this._scrollX;
-      const w = this.getColWidth(c);
-
-      console.log(c)
-      this._ctx.fillStyle = '#eacef6'
-      this._ctx.fillRect(Math.floor(x) + 0.5, 0, w, this._headerHeight)
-      this._ctx.strokeStyle = "#000000";
-      this._ctx.lineWidth = 1;
-      this._ctx.fillStyle = '#000000'
-      this._ctx.strokeRect(Math.floor(x) + 0.5, 0, w, this._headerHeight);
-      let ch: string;
-      if (c < 26) {
-        ch = String.fromCharCode(c + 65);
-      } else {
-        let remainder = c % 26;
-        ch = String.fromCharCode((c / 26) + 64) + String.fromCharCode(remainder + 65);
-      }
-      this._ctx.fillText(ch, x + 5, (this._headerHeight / 2));
-    }
-
-    this._ctx.fillStyle = '#dfa9ff'
-    this._ctx.fillRect(0, 0, this._headerWidth, this._headerHeight)
-    this._ctx.strokeRect(0, 0, this._headerWidth, this._headerHeight);
-
+    this.renderer.render({
+      ctx: this._ctx,
+      canvasWidth: this._canvas.clientWidth,
+      canvasHeight: this._canvas.clientHeight,
+      rowCount: this._rowCount,
+      colCount: this._columnCount,
+      headerWidth: this._headerWidth,
+      headerHeight: this._headerHeight,
+      scrollX: this._scrollX,
+      scrollY: this._scrollY,
+      getRowHeight: this.getRowHeight.bind(this),
+      getColWidth: this.getColWidth.bind(this),
+      getRowY: this.getRowY.bind(this),
+      getColX: this.getColX.bind(this),
+      selectedCell: this._selectedCell,
+      input: this._input,
+      data: this.data,
+      isDragging: this.isDragging,
+      selectedFirst: this.selectedFirst,
+      selectedLast: this.selectedLast,
+    });
   }
 
-  private getSelectedCell(x: number, y: number): { row: number, col: number } | null {
+  public getSelectedCell(x: number, y: number): { row: number, col: number } | null {
     const targetX = x + this._scrollX;
     const targetY = y + this._scrollY;
 
     let col = -1, accX = 0;
-    for (let c = 0; c < this._columnCunt; c++) {
+    for (let c = 0; c < this._columnCount; c++) {
       const w = this.getColWidth(c);
       if (targetX >= accX && targetX < accX + w) {
         col = c;
@@ -302,93 +295,29 @@ class ExcelGrid {
 
   }
 
-  private canvasEventsBinding(): void {
-    this._canvas.addEventListener("wheel", (event) => {
-      event.preventDefault();
-
-      this._scrollX = Math.max(0, this._scrollX + event.deltaX);
-      this._scrollY = Math.max(0, this._scrollY + event.deltaY);
-      this.renderCanvas();
-    }, { passive: false });
-
-    this._canvas.addEventListener("mousedown", (event) => {
-      if (this._editingCell) {
-        this.commitEdit();
-      }
-      const rect = this._canvas.getBoundingClientRect();
-      const mouseX = event.clientX - this._headerWidth - rect.left;
-      const mouseY = event.clientY - this._headerHeight - rect.top;
-
-      const target = this.getResizingTarget(mouseX, mouseY);
-      if (target) {
-        const startSize = target.type === 'col'
-          ? this.getColWidth(target.index)
-          : this.getRowHeight(target.index);
-        const startPos = target.type === 'col' ? mouseX : mouseY;
-        this._resizing = { type: target.type, index: target.index, startPos, startSize };
-        return;
-      }
-
-      const cell = this.getSelectedCell(mouseX, mouseY);
-      if (cell) {
-        this._selectedCell = cell;
-        this.renderCanvas();
-      }
-    })
-
-    this._canvas.addEventListener("dblclick", (event) => {
-
-      const rect = this._canvas.getBoundingClientRect();
-      const mouseX = event.clientX - this._headerWidth - rect.left;
-      const mouseY = event.clientY - this._headerHeight - rect.left;
-
-      const cell = this.getSelectedCell(mouseX, mouseY);
-      if (cell) {
-        this._editingCell = cell;
-        this.startEdit(cell.row, cell.col);
-      }
-    })
-
-    this._canvas.addEventListener("mousemove", (event) => {
-      const rect = this._canvas.getBoundingClientRect();
-      const mouseX = event.clientX - this._headerWidth - rect.left;
-      const mouseY = event.clientY - this._headerHeight - rect.top;
-
-      if (this._resizing) {
-        const delta = this._resizing.type === 'col'
-          ? mouseX - this._resizing.startPos
-          : mouseY - this._resizing.startPos;
-        const newSize = Math.max(20, this._resizing.startSize + delta);
-
-        if (this._resizing.type === 'col') {
-          this._colWidths.set(this._resizing.index, newSize);
-        }
-        if (this._resizing.type === 'row') {
-          this._rowHeights.set(this._resizing.index, newSize);
-        }
-        this.renderCanvas();
-        return;
-      }
-      const target = this.getResizingTarget(mouseX, mouseY);
-      this._canvas.style.cursor = target
-        ? (target.type === 'col' ? 'col-resize' : 'row-resize')
-        : 'cell';
-    });
-
-    window.addEventListener("mouseup", () => {
-      this._resizing = null;
-    });
-    window.addEventListener("resize", () => {
-      this.resizeCanvas();
-      this.renderCanvas();
-    });
-
-
-  }
-
   public setCellValue(row: number, col: number, value: string): void {
-    const key = `${row},${col}`;
-    this._data.set(key, { value });
+    const oldValue = this.data.getData(row, col);
+    let cellValueToStore = value;
+    if (value.trim().startsWith("=")) {
+      const normalizedFormula = this._engine.normalizeFormula(value);
+      this.data.setCellData(row, col, { value: normalizedFormula });
+      try {
+        const calculatedResult = this._engine.getValueAt(row, col) as string;
+        cellValueToStore = calculatedResult;
+      } catch (err) {
+        cellValueToStore = "#ERROR!";
+      }
+    }
+
+    const newValue: CellData = { ...oldValue, value: cellValueToStore };
+    const command = new SetCellCommand(
+      (r, c, cellDataPayload) => {
+        this.data.setCellData(r, c, cellDataPayload);
+        this.refresh();
+      },
+      row, col, oldValue, newValue
+    );
+    this.history.execute(command);
   }
 
   public refresh(): void {
