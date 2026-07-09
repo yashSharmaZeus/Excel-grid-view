@@ -6,5 +6,7 @@ export interface CellStyle {
 export interface CellData {
   value: string;
   style?: CellStyle;
+  row: number;
+  col: number;
 }
  

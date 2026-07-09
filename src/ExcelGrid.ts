@@ -5,6 +5,8 @@ import { EventManager } from "./EventManager.js";
 import type { GridController } from "./GridController.js";
 import { FormulaEngine } from "./FormulaEngine.js";
 import type { CellData } from "./Type.js";
+import { SummaryCalculator } from "./SummaryCalculator.js";
+
 
 
 class ExcelGrid implements GridController {
@@ -15,7 +17,7 @@ class ExcelGrid implements GridController {
   private data: Data;
   private _engine: FormulaEngine;
   private history = new HistoryManager();
-
+  private _summaryCalculator: SummaryCalculator;
   private _rowCount: number;
   private _columnCount: number;
   private _defaultRowHeight: number = 25;
@@ -38,8 +40,8 @@ class ExcelGrid implements GridController {
 
   private renderer = new Render();
   public isDragging = false;
-  public selectedFirst = {row: -1,col:-1};
-  public selectedLast = {row: -1,col:-1};
+  public selectedFirst = { row: -1, col: -1 };
+  public selectedLast = { row: -1, col: -1 };
 
   constructor(canvasId: string, rowCount: number, columnCunt: number, data: Data) {
     this.data = data;
@@ -48,9 +50,9 @@ class ExcelGrid implements GridController {
     this._rowCount = rowCount;
     this._columnCount = columnCunt;
     this._engine = new FormulaEngine(this.data)
+    this._summaryCalculator = new SummaryCalculator(this.data);
 
-
-    new EventManager(this._canvas, this, this._headerWidth, this._headerHeight).bind();
+    new EventManager(this._canvas, this, this._headerWidth, this._headerHeight, this._rowCount, this._columnCount,).bind();
     this.resizeCanvas();
     this.renderCanvas();
   }
@@ -66,6 +68,22 @@ class ExcelGrid implements GridController {
   public setScroll(x: number, y: number): void {
     this._scrollX = x;
     this._scrollY = y;
+  }
+
+  public addScrollX(col: number): void {
+    this._scrollX += this.getColWidth(col);
+  }
+
+  public addScrollY(row: number): void {
+    this._scrollY += this.getRowHeight(row);
+  }
+
+  public subtractScrollX(col: number): void {
+      this._scrollX = Math.max(0,this._scrollX - this.getColWidth(col));
+  }
+
+  public subtractScrollY(row: number): void {
+    this._scrollY = Math.max(0, this._scrollY -this.getRowHeight(row));
   }
 
   private getColWidth(col: number) {
@@ -91,6 +109,7 @@ class ExcelGrid implements GridController {
     }
     return y;
   }
+
   public startResize(type: 'col' | 'row', index: number, x: number, y: number): void {
     const startSize = type === 'col' ? this.getColWidth(index) : this.getRowHeight(index);
     const startPos = type === 'col' ? x : y;
@@ -120,6 +139,13 @@ class ExcelGrid implements GridController {
     return this._resizing !== null;
   }
 
+  public summary(): void {
+    const col1: number = this.selectedFirst.col;
+    const col2: number = this.selectedLast.col;
+    const row1: number = this.selectedFirst.row;
+    const row2: number = this.selectedLast.row;
+    this._summaryCalculator.setValues(col1, col2, row1, row2)
+  }
 
   public getResizingTarget(x: number, y: number): { type: 'col' | 'row'; index: number } | null {
     const targetX = x + this._scrollX;
@@ -161,6 +187,36 @@ class ExcelGrid implements GridController {
 
   public handleWindowResize(): void {
     this.resizeCanvas();
+  }
+
+  public getSelectedCol(x: number): number {
+    const targetX = x + this._scrollX;
+
+    let col = -1, accX = 0;
+    for (let c = 0; c < this._columnCount; c++) {
+      const w = this.getColWidth(c);
+      if (targetX >= accX && targetX < accX + w) {
+        col = c;
+        break
+      }
+      accX += w;
+    }
+    return col;
+  }
+
+  public getSelectedRow(y: number): number {
+    const targetY = y + this._scrollY;
+
+    let row = -1, accY = 0;
+    for (let r = 0; r < this._rowCount; r++) {
+      const h = this.getRowHeight(r);
+      if (targetY >= accY && targetY < accY + h) {
+        row = r;
+        break
+      }
+      accY += h;
+    }
+    return row;
   }
 
   private createInputBox(): HTMLInputElement {
@@ -270,27 +326,9 @@ class ExcelGrid implements GridController {
   }
 
   public getSelectedCell(x: number, y: number): { row: number, col: number } | null {
-    const targetX = x + this._scrollX;
-    const targetY = y + this._scrollY;
+    const row = this.getSelectedRow(y);
+    const col = this.getSelectedCol(x);
 
-    let col = -1, accX = 0;
-    for (let c = 0; c < this._columnCount; c++) {
-      const w = this.getColWidth(c);
-      if (targetX >= accX && targetX < accX + w) {
-        col = c;
-        break
-      }
-      accX += w;
-    }
-    let row = -1, accY = 0;
-    for (let r = 0; r < this._rowCount; r++) {
-      const h = this.getRowHeight(r);
-      if (targetY >= accY && targetY < accY + h) {
-        row = r;
-        break
-      }
-      accY += h;
-    }
     return (row >= 0 && col >= 0) ? { row, col } : null;
 
   }
@@ -300,7 +338,7 @@ class ExcelGrid implements GridController {
     let cellValueToStore = value;
     if (value.trim().startsWith("=")) {
       const normalizedFormula = this._engine.normalizeFormula(value);
-      this.data.setCellData(row, col, { value: normalizedFormula });
+      this.data.setCellData(row, col, { value: normalizedFormula, row, col });
       try {
         const calculatedResult = this._engine.getValueAt(row, col) as string;
         cellValueToStore = calculatedResult;
@@ -309,7 +347,7 @@ class ExcelGrid implements GridController {
       }
     }
 
-    const newValue: CellData = { ...oldValue, value: cellValueToStore };
+    const newValue: CellData = { ...oldValue, value: cellValueToStore, row, col };
     const command = new SetCellCommand(
       (r, c, cellDataPayload) => {
         this.data.setCellData(r, c, cellDataPayload);

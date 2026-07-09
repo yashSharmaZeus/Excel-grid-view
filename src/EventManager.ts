@@ -5,7 +5,9 @@ export class EventManager {
         private canvas: HTMLCanvasElement,
         private controller: GridController,
         private headerWidth: number,
-        private headerHeight: number
+        private headerHeight: number,
+        private rowCount: number,
+        private colCount: number,
     ) { }
 
     public bind(): void {
@@ -50,26 +52,38 @@ export class EventManager {
                 this.controller.startResize(target.type, target.index, x, y)
                 return;
             }
+
             this.controller.isDragging = true;
+
             const cell = this.controller.getSelectedCell(x, y);
-            
-            console.log(y)
-            if(y<0){
-                this.controller.selectedFirst = {row:cell!.row,col:0 }
-                this.controller.selectedLast = {row:cell!.row , col:10}
+            if (y < 0) {
+                let col = this.controller.getSelectedCol(x)
+                this.controller.selectedFirst = { row: 0, col: col };
+                this.controller.selectedLast = { row: this.rowCount, col: col };
+                this.controller.summary();
                 this.controller.refresh();
+                return;
+            }
+            if (x < 0) {
+                let row = this.controller.getSelectedRow(y)
+                this.controller.selectedFirst = { row: row, col: 0 };
+                this.controller.selectedLast = { row: row, col: this.colCount };
+                this.controller.summary();
+                this.controller.refresh();
+                return;
+
             }
             if (cell) {
-                this.controller.selectedFirst = {row : cell.row, col :cell.col};
+                this.controller.selectedFirst = { row: cell.row, col: cell.col };
                 this.controller.selectCell(cell.row, cell.col);
                 this.controller.refresh();
+                return;
             }
         })
     }
 
     private bindDblClick(): void {
         this.canvas.addEventListener("dblclick", (event) => {
-
             const { x, y } = this.LocalCord(event);
             const cell = this.controller.getSelectedCell(x, y);
             if (cell) {
@@ -89,11 +103,10 @@ export class EventManager {
                 return;
             }
 
-            if(this.controller.isDragging){
+            if (this.controller.isDragging) {
                 const cell = this.controller.getSelectedCell(x, y);
-                if(!cell) return;
-                this.controller.selectedLast = {row : cell.row, col :cell.col}; 
-                // console.log(this.controller.selectedLast);
+                if (!cell) return;
+                this.controller.selectedLast = { row: cell.row, col: cell.col };
                 this.controller.refresh();
                 return;
             }
@@ -107,8 +120,11 @@ export class EventManager {
     private bindMouseUp(): void {
         window.addEventListener("mouseup", () => {
             this.controller.endResize();
-            this.controller.isDragging = false;
         });
+        this.canvas.addEventListener("mouseup", () => {
+            this.controller.isDragging = false;
+            this.controller.summary();
+        })
     }
 
     private bindWindowResize(): void {
@@ -120,22 +136,60 @@ export class EventManager {
 
     private bindKeyboard(): void {
         window.addEventListener("keydown", (event) => {
-            if (document.activeElement === this.controller.getInputElement()) return;
             const isMod = event.ctrlKey;
+            if (document.activeElement === this.controller.getInputElement()) return;
+            const key = event.key;
+            if (isMod) {
+                const lowerKey = event.key.toLowerCase();
+                if (lowerKey === 'z' && !event.shiftKey) {
+                    event.preventDefault();
+                    this.controller.undo();
+                    this.controller.refresh();
 
-            if (!isMod) return;
-            const key = event.key.toLowerCase();
-            if (key === 'z' && !event.shiftKey) {
-                event.preventDefault();
-                this.controller.undo();
-                this.controller.refresh();
-
+                }
+                else if ((lowerKey === 'z' && event.shiftKey) || lowerKey === 'y') {
+                    event.preventDefault();
+                    this.controller.redo();
+                    this.controller.refresh();
+                }
             }
-            else if ((key === 'z' && event.shiftKey) || key === 'y') {
-                event.preventDefault();
-                this.controller.redo();
-                this.controller.refresh();
 
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
+
+                const currentCell = this.controller.selectedFirst || { row: 0, col: 0 };
+                let nextRow = currentCell.row;
+                let nextCol = currentCell.col;
+                switch (key) {
+                    case 'ArrowUp':
+                        nextRow = Math.max(0, nextRow - 1);
+                        this.controller.subtractScrollY(nextRow);
+                        this.controller.refresh();
+                        break;
+                    case 'ArrowDown':
+                        nextRow = Math.min(this.rowCount - 1, nextRow + 1);
+                        this.controller.addScrollY(nextRow);
+                        this.controller.refresh();
+                        break;
+                    case 'ArrowLeft':
+                        nextCol = Math.max(0, nextCol - 1);
+                        this.controller.subtractScrollX(nextCol);
+                        this.controller.refresh();
+                        break;
+                    case 'ArrowRight':
+                        nextCol = Math.min(this.colCount - 1, nextCol + 1);
+                        this.controller.addScrollX(nextCol);
+                        this.controller.refresh();
+                        break;
+                }
+
+                if (nextRow !== currentCell.row || nextCol !== currentCell.col) {
+                    event.preventDefault();
+                    this.controller.selectedFirst = { row: nextRow, col: nextCol };
+                    this.controller.selectedLast = { row: nextRow, col: nextCol };
+
+                    this.controller.selectCell(nextRow, nextCol);
+                    this.controller.refresh();
+                }
             }
         })
     }

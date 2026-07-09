@@ -12,7 +12,7 @@ export class Data {
 
     public setData(row: number, col: number, value: string, style?: CellStyle): void {
         const key = `${row},${col}`;
-        this._data.set(key, { value: value, style:style?style: { background: "#fff" } } as CellData);
+        this._data.set(key, { value: value, style:style?style: { background: "#fff" },row,col } as CellData);
     }
 
     public setCellData(row: number, col: number, data: CellData | null): void {
@@ -22,6 +22,10 @@ export class Data {
         } else {
             this.setData(row, col, data.value, data.style)
         }
+    }
+
+    public clearData():void{
+        this._data.clear();
     }
 
     public entries(): Array<[number, number, CellData]> {

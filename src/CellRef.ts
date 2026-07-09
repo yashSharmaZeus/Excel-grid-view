@@ -1,4 +1,3 @@
-/** Convert an A1-style ref (e.g. "A1", "AA7") into zero-indexed {row, col}. */
 export function cellRefToRowCol(ref: string): { row: number; col: number } {
   const match = /^([A-Za-z]+)([0-9]+)$/.exec(ref.trim());
   if (!match) {
@@ -9,15 +8,14 @@ export function cellRefToRowCol(ref: string): { row: number; col: number } {
   let col = 0;
   const upper = letters!.toUpperCase();
   for (let i = 0; i < upper.length; i++) {
-    col = col * 26 + (upper.charCodeAt(i) - 64); // 'A' -> 1
+    col = col * 26 + (upper.charCodeAt(i) - 64); 
   }
-  col -= 1; // zero-index
+  col -= 1; 
 
-  const row = parseInt(digits!, 10) - 1; // zero-index
+  const row = parseInt(digits!, 10) - 1; 
   return { row, col };
 }
 
-/** Convert zero-indexed {row, col} back into an A1-style ref. */
 export function rowColToCellRef(row: number, col: number): string {
   let c = col + 1;
   let letters = "";

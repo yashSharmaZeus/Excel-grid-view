@@ -139,7 +139,7 @@ class Parser {
     const base = this.parseUnary();
     if (this.peek().type === "OP" && this.peek().value === "^") {
       this.next();
-      const exponent = this.parsePower(); // right-associative
+      const exponent = this.parsePower(); 
       return { type: "BinaryOp", op: "^", left: base, right: exponent };
     }
     return base;
@@ -183,7 +183,7 @@ class Parser {
 
 export class FormulaEngine {
   private data: Data;
- 
+
   constructor(data?: Data) {
     this.data = data ?? new Data();
   }
@@ -240,7 +240,7 @@ export class FormulaEngine {
       const ast = new Parser(tokenize(trimmed.slice(1))).parse();
       result = this.evalNode(ast, nextStack);
     } else if (/^[+-]?(\d+\.?\d*|\.\d+)$/.test(trimmed)) {
-      result = parseFloat(trimmed); 
+      result = parseFloat(trimmed);
     } else {
       result = trimmed;
     }
@@ -255,7 +255,7 @@ export class FormulaEngine {
       case "CellRef": {
         const { row, col } = cellRefToRowCol(node.ref);
         const v = this.resolveCell(row, col, stack);
-        if (v === null) return 0;              
+        if (v === null) return 0;
         if (typeof v === "string") {
           throw new FormulaError(`#VALUE! ${node.ref} contains text, not a number`);
         }
