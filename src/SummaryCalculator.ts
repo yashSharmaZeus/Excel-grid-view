@@ -5,10 +5,10 @@ export class SummaryCalculator {
     private col2: number = -1;
     private row1: number = -1;
     private row2: number = -1;
-    private startCol : number = -1;
-    private endCol : number = -1;
-    private startRow : number = -1;
-    private endRow : number = -1;
+    private startCol: number = -1;
+    private endCol: number = -1;
+    private startRow: number = -1;
+    private endRow: number = -1;
     private dataArray: number[] = [];
     constructor(private data: Data) {
     }
@@ -18,67 +18,71 @@ export class SummaryCalculator {
         this.col2 = col2;
         this.row1 = row1;
         this.row2 = row2;
-        this.startCol= Math.min(this.col1,this.col2);
-        this.endCol = Math.max(this.col1,this.col2);
-        this.startRow =  Math.min(this.row1,this.row2);
-        this.endRow =  Math.max(this.row1,this.row2);
+        this.startCol = Math.min(this.col1, this.col2);
+        this.endCol = Math.max(this.col1, this.col2);
+        this.startRow = Math.min(this.row1, this.row2);
+        this.endRow = Math.max(this.row1, this.row2);
 
         this.dataArray = [];
         for (let i = this.startCol; i <= this.endCol; i++) {
             for (let j = this.startRow; j <= this.endRow; j++) {
                 let data = this.data.getData(j, i);
-                if(data === null) continue;
-                if(this.isNumeric(data.value)){
+                if (data === null) continue;
+                if (this.isNumeric(data.value)) {
                     this.dataArray.push(parseInt(data.value))
                 }
             }
         }
-        
+
         let countElement = document.querySelector("#count");
-        if (countElement){
+        if (countElement) {
             countElement.innerHTML = this.count().toString();
         }
         let minElement = document.querySelector("#min");
-        if (minElement){
+        if (minElement) {
             minElement.innerHTML = this.min().toString();
         }
         let maxElement = document.querySelector("#max");
-        if (maxElement){
+        if (maxElement) {
             maxElement.innerHTML = this.max().toString();
         }
         let sumElement = document.querySelector("#sum");
-        if (sumElement){
+        if (sumElement) {
             sumElement.innerHTML = this.sum().toString();
         }
         let averageElement = document.querySelector("#avg");
-        if (averageElement){
-            averageElement.innerHTML = this.average().toString();
+        if (averageElement) {
+            averageElement.innerHTML = this.average();
         }
     }
 
-    private isNumeric = (str:string) => str.trim() !== '' && !isNaN(Number(str));
+    private isNumeric = (str: string) => str.trim() !== '' && !isNaN(Number(str));
 
     count(): number {
         return this.dataArray.length;
     }
 
     min(): number {
-        return Math.min(...this.dataArray)
+        let min = Math.min(...this.dataArray);
+        if (min === Number.POSITIVE_INFINITY) return 0;
+        return min;
     }
 
     max(): number {
-        return Math.max(...this.dataArray)
+        let max = Math.max(...this.dataArray);
+        if (max === Number.NEGATIVE_INFINITY) return 0;
+        return max;
     }
 
     sum(): number {
         let sum = 0;
-        this.dataArray.forEach((val:number)=>sum+=val)
+        this.dataArray.forEach((val: number) => sum += val);
         return sum;
     }
 
-    average(): number {
+    average(): string {
         let sum = this.sum();
         let count = this.count();
-        return sum/count;
+        return (sum / count).toFixed(4);
     }
 }

@@ -44,21 +44,27 @@ export class EventManager {
             if (this.controller.isEditing()) {
                 this.controller.commitEdit();
             }
-            this.controller.selectedFirst = null;
-            this.controller.selectedLast = null;
             const { x, y } = this.LocalCord(event);
+            
+            this.controller.isDragging = true;
+
+            const cell = this.controller.getSelectedCell(x, y);
+            if (cell) {
+                this.controller.selectedFirst = { row: cell.row, col: cell.col };
+                this.controller.selectedLast = { row: cell.row, col: cell.col };
+                this.controller.selectCell(cell.row, cell.col);
+                this.controller.summary();
+                this.controller.refresh();
+            }
             const target = this.controller.getResizingTarget(x, y);
             if (target) {
                 this.controller.startResize(target.type, target.index, x, y)
                 return;
             }
-
-            this.controller.isDragging = true;
-
-            const cell = this.controller.getSelectedCell(x, y);
             if (y < 0) {
                 let col = this.controller.getSelectedCol(x)
                 this.controller.selectedFirst = { row: 0, col: col };
+                this.controller.selectCell(0, col);
                 this.controller.selectedLast = { row: this.rowCount, col: col };
                 this.controller.summary();
                 this.controller.refresh();
@@ -67,25 +73,21 @@ export class EventManager {
             if (x < 0) {
                 let row = this.controller.getSelectedRow(y)
                 this.controller.selectedFirst = { row: row, col: 0 };
+                this.controller.selectCell(row, 0);
                 this.controller.selectedLast = { row: row, col: this.colCount };
                 this.controller.summary();
                 this.controller.refresh();
                 return;
 
             }
-            if (cell) {
-                this.controller.selectedFirst = { row: cell.row, col: cell.col };
-                this.controller.selectCell(cell.row, cell.col);
-                this.controller.refresh();
-                return;
-            }
+            
         })
     }
 
     private bindDblClick(): void {
         this.canvas.addEventListener("dblclick", (event) => {
-            const { x, y } = this.LocalCord(event);
-            const cell = this.controller.getSelectedCell(x, y);
+            // const { x, y } = this.LocalCord(event);
+            const cell = this.controller.getActiveCell();
             if (cell) {
                 this.controller.startEdit(cell.row, cell.col);
             }
@@ -95,7 +97,6 @@ export class EventManager {
     private bindMouseMove(): void {
 
         window.addEventListener("mousemove", (event) => {
-            const rect = this.canvas.getBoundingClientRect();
             const { x, y } = this.LocalCord(event);
             if (this.controller.isResizing()) {
                 this.controller.updateResize(x, y);
@@ -107,6 +108,7 @@ export class EventManager {
                 const cell = this.controller.getSelectedCell(x, y);
                 if (!cell) return;
                 this.controller.selectedLast = { row: cell.row, col: cell.col };
+                this.controller.summary();
                 this.controller.refresh();
                 return;
             }
@@ -155,6 +157,7 @@ export class EventManager {
             }
 
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
+                const rect = this.canvas.getBoundingClientRect();
 
                 const currentCell = this.controller.selectedFirst || { row: 0, col: 0 };
                 let nextRow = currentCell.row;
@@ -189,6 +192,13 @@ export class EventManager {
 
                     this.controller.selectCell(nextRow, nextCol);
                     this.controller.refresh();
+                }
+            }
+
+            if (key === "Enter") {
+                const cell = this.controller.getActiveCell();
+                if (cell) {
+                    this.controller.startEdit(cell.row, cell.col);
                 }
             }
         })

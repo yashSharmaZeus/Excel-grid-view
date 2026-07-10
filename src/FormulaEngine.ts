@@ -139,7 +139,7 @@ class Parser {
     const base = this.parseUnary();
     if (this.peek().type === "OP" && this.peek().value === "^") {
       this.next();
-      const exponent = this.parsePower(); 
+      const exponent = this.parsePower();
       return { type: "BinaryOp", op: "^", left: base, right: exponent };
     }
     return base;

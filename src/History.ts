@@ -22,6 +22,23 @@ export class SetCellCommand implements ICommand {
         this.setter(this.row, this.col, this.newValue);
     }
 }
+export class SetResizeCommand implements ICommand {
+    constructor(
+        private resize: (type : 'row' | 'col', index: number, size:number | null) => void,
+         private type: 'col' | 'row',
+        private index: number,
+        private oldValue: number,
+        private newValue: number
+    ) { }
+
+    undo(): void {
+        this.resize(this.type, this.index, this.oldValue);
+    }
+
+    redo(): void {
+        this.resize(this.type, this.index, this.newValue);
+    }
+}
 
 export class HistoryManager {
     private undoStack: ICommand[] = [];

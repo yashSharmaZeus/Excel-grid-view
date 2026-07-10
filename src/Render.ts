@@ -37,6 +37,14 @@ export interface RenderSetting {
 }
 
 export class Render {
+
+    private rowHeaderSelection: { x: number, y: number, w: number, h: number } = { x: -1, y: -1, w: -1, h: -1 };
+    private colHeaderSelection: { x: number, y: number, w: number, h: number } = { x: -1, y: -1, w: -1, h: -1 };
+
+    public drawHeaderSelection(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+        ctx.fillStyle = '#b6d3c36c'
+        ctx.fillRect(x, y, w, h);
+    }
     public render(setting: RenderSetting): void {
 
         const {
@@ -81,6 +89,31 @@ export class Render {
             endRow++;
         }
 
+        if (selectedFirst && selectedLast) {
+            const startColIdx = Math.min(selectedFirst.col, selectedLast.col);
+            const endColIdx = Math.max(selectedFirst.col, selectedLast.col);
+            const startRowIdx = Math.min(selectedFirst.row, selectedLast.row);
+            const endRowIdx = Math.max(selectedFirst.row, selectedLast.row);
+
+            const xStart = setting.getColX(startColIdx) + headerWidth - scrollX;
+            const yStart = setting.getRowY(startRowIdx) + headerHeight - scrollY;
+
+            const xEnd = setting.getColX(endColIdx) + headerWidth - scrollX + setting.getColWidth(endColIdx);
+            const yEnd = setting.getRowY(endRowIdx) + headerHeight - scrollY + setting.getRowHeight(endRowIdx);
+
+            const rectWidth = xEnd - xStart;
+            const rectHeight = yEnd - yStart;
+
+            ctx.strokeStyle = '#137e43';
+            ctx.fillStyle = '#92bca25e'
+            ctx.fillRect(xStart, yStart, rectWidth, rectHeight)
+            ctx.lineWidth = 1;
+            ctx.strokeRect(xStart, yStart, rectWidth, rectHeight);
+            this.rowHeaderSelection = { x: 0, y: yStart, w: headerWidth, h: rectHeight }
+            this.colHeaderSelection = { x: xStart, y: 0, w: rectWidth, h: headerHeight }
+            ctx.fillStyle = '#b6d3c36c'
+        }
+
         
         if (setting.selectedCell) {
             const w = setting.getColWidth(setting.selectedCell.col);
@@ -98,11 +131,11 @@ export class Render {
                 input.style.left = selectX + 'px';
                 input.style.top = selectY + 'px';
             }
+            if(!selectedFirst && !selectedLast){
+                this.colHeaderSelection.w = w;
+                this.rowHeaderSelection.h = h;
+            }
         }
-
-
-
-
 
         for (let r = startRow; r <= endRow; r++) {
             const y = setting.getRowY(r) + headerHeight - scrollY;
@@ -120,12 +153,12 @@ export class Render {
 
                 if (cellData && cellData.value) {
                     ctx.fillStyle = '#000000';
-                    ctx.fillText(cellData.value, x + 5, y + (h / 2), w - 10);
+                    ctx.fillText(cellData.value, x + 5, y + (h / 2));
                 }
-        
+
             }
 
-            
+
             ctx.fillStyle = '#f5f5f5'
             ctx.fillRect(0, Math.floor(y) + 0.5, headerWidth, h)
             ctx.strokeStyle = "#bcbcbc";
@@ -134,7 +167,7 @@ export class Render {
             ctx.strokeRect(0, Math.floor(y) + 0.5, headerWidth, h);
             ctx.fillText((r + 1).toString(), 20, y + (setting.headerHeight / 2));
         }
-        
+
         for (let c = startCol; c <= endCol; c++) {
             const x = setting.getColX(c) + headerWidth - scrollX;
             const w = setting.getColWidth(c);
@@ -154,34 +187,9 @@ export class Render {
             }
             ctx.fillText(ch, x + (w / 2), (setting.headerHeight / 2));
         }
+        this.drawHeaderSelection(ctx, this.rowHeaderSelection.x, this.rowHeaderSelection.y, this.rowHeaderSelection.w,  this.rowHeaderSelection.h);
+        this.drawHeaderSelection(ctx, this.colHeaderSelection.x, this.colHeaderSelection.y, this.colHeaderSelection.w, this.colHeaderSelection.h);
 
-        if (selectedFirst && selectedLast) {
-            const startColIdx = Math.min(selectedFirst.col, selectedLast.col);
-            const endColIdx = Math.max(selectedFirst.col, selectedLast.col);
-            const startRowIdx = Math.min(selectedFirst.row, selectedLast.row);
-            const endRowIdx = Math.max(selectedFirst.row, selectedLast.row);
-
-            const xStart = setting.getColX(startColIdx) + headerWidth - scrollX;
-            const yStart = setting.getRowY(startRowIdx) + headerHeight - scrollY;
-
-            const xEnd = setting.getColX(endColIdx) + headerWidth - scrollX + setting.getColWidth(endColIdx);
-            const yEnd = setting.getRowY(endRowIdx) + headerHeight - scrollY + setting.getRowHeight(endRowIdx);
-
-            const rectWidth = xEnd - xStart;
-            const rectHeight = yEnd - yStart;
-
-            ctx.strokeStyle = '#137e43';
-            ctx.fillStyle = '#92bca25e'
-            ctx.fillRect(xStart, yStart, rectWidth, rectHeight)
-            ctx.lineWidth = 2;
-            ctx.strokeRect(xStart, yStart, rectWidth, rectHeight);
-            
-            ctx.fillStyle = '#b6d3c36c'
-            ctx.fillRect(0, yStart, headerWidth, rectHeight);
-            ctx.fillStyle = '#b6d3c36c'
-            ctx.fillRect(xStart, 0, rectWidth, headerHeight);
-        }
-        
         ctx.strokeStyle = '#bcbcbc';
         ctx.fillStyle = '#f5f5f5'
         ctx.fillRect(0, 0, headerWidth, headerHeight)

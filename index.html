@@ -61,10 +61,11 @@
         #status-bar{
             display: flex;
             width: 100%;
-            justify-content: space-evenly;
+            justify-content: space-around;
         }
         .summary{
             display: flex;
+            max-width: 5vw;
             justify-content: center;
             align-items: center;
         }
@@ -82,11 +83,11 @@
         <input type="file" id="load-file" accept=".json" hidden />
 
         <div id="status-bar">
-            <span class="summary">count: <div id="count">-</div></span>
-            <span class="summary">min: <div  id="min">-</div></span>
-            <span class="summary">max: <div  id="max">-</div></span>
-            <span class="summary">sum: <div  id="sum">-</div></span>
-            <span class="summary">avg: <div  id="avg">-</div></span>
+            <span class="summary">count: <div id="count"></div></span>
+            <span class="summary">min: <div  id="min"></div></span>
+            <span class="summary">max: <div  id="max"></div></span>
+            <span class="summary">sum: <div  id="sum"></div></span>
+            <span class="summary">avg: <div  id="avg"></div></span>
         </div>
     </footer>
 

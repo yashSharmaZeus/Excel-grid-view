@@ -1,6 +1,6 @@
 import { Data } from "./Data.js";
 import { Render } from "./Render.js";
-import { HistoryManager, SetCellCommand } from "./History.js";
+import { HistoryManager, SetCellCommand, SetResizeCommand} from "./History.js";
 import { EventManager } from "./EventManager.js";
 import type { GridController } from "./GridController.js";
 import { FormulaEngine } from "./FormulaEngine.js";
@@ -26,6 +26,7 @@ class ExcelGrid implements GridController {
   private _scrollX: number = 0;
   private _scrollY: number = 0;
 
+  private _startResizeSize:number = 0;
   private _headerHeight: number = 25;
   private _headerWidth: number = 50;
 
@@ -38,10 +39,13 @@ class ExcelGrid implements GridController {
   private _resizing: { type: 'col' | 'row'; index: number; startPos: number; startSize: number } | null = null;
   private readonly RESIZE_MARGIN = 5;
 
+  private _containerWidth = 800;  
+private _containerHeight = 600; 
+
   private renderer = new Render();
   public isDragging = false;
-  public selectedFirst = { row: -1, col: -1 };
-  public selectedLast = { row: -1, col: -1 };
+  public selectedFirst: { row: number; col: number } | null = null;
+  public selectedLast: { row: number; col: number } | null = null;
 
   constructor(canvasId: string, rowCount: number, columnCunt: number, data: Data) {
     this.data = data;
@@ -79,11 +83,13 @@ class ExcelGrid implements GridController {
   }
 
   public subtractScrollX(col: number): void {
-      this._scrollX = Math.max(0,this._scrollX - this.getColWidth(col));
+    const scroll = this._scrollX - this.getColWidth(col);
+      this._scrollX = Math.max(0,scroll)
   }
 
   public subtractScrollY(row: number): void {
-    this._scrollY = Math.max(0, this._scrollY -this.getRowHeight(row));
+    const scroll =  this._scrollY -this.getRowHeight(row);
+    this._scrollY = Math.max(0,scroll);
   }
 
   private getColWidth(col: number) {
@@ -114,6 +120,7 @@ class ExcelGrid implements GridController {
     const startSize = type === 'col' ? this.getColWidth(index) : this.getRowHeight(index);
     const startPos = type === 'col' ? x : y;
     this._resizing = { type, index, startPos, startSize };
+    this._startResizeSize = startSize;
   }
 
   public updateResize(x: number, y: number): void {
@@ -132,6 +139,24 @@ class ExcelGrid implements GridController {
   }
 
   public endResize(): void {
+    if(!this._resizing) return;
+
+    const {type, index} = this._resizing;
+    const finalSize = type === "col" ? this.getColWidth(index) : this.getRowHeight(index);
+    if(finalSize !== this._startResizeSize){
+      const resizeCommand = new SetResizeCommand(
+        (t, i, s) => {
+                if (t === 'col') this._colWidths.set(i, s!);
+                else this._rowHeights.set(i, s!);
+                this.refresh();
+            },
+            type,
+            index,
+            this._startResizeSize,
+            finalSize
+      );
+      this.history.execute(resizeCommand);
+    }
     this._resizing = null;
   }
 
@@ -140,6 +165,7 @@ class ExcelGrid implements GridController {
   }
 
   public summary(): void {
+    if(!this.selectedFirst || !this.selectedLast) return;
     const col1: number = this.selectedFirst.col;
     const col2: number = this.selectedLast.col;
     const row1: number = this.selectedFirst.row;
@@ -169,6 +195,11 @@ class ExcelGrid implements GridController {
   public selectCell(row: number, col: number): void {
     this._selectedCell = { row, col };
   }
+
+  public getActiveCell(): {row: number, col: number}|null{
+    return this._selectedCell;
+  }
+
   public isEditing(): boolean {
     return this._editingCell !== null;
   }
@@ -231,7 +262,7 @@ class ExcelGrid implements GridController {
       if (event.key === 'Enter') {
         this.commitEdit();
         this.refresh();
-      } else if (event.key === 'Esc') {
+      } else if (event.key === 'Escape') {
         this.cancelEdit();
       }
     });
@@ -284,7 +315,7 @@ class ExcelGrid implements GridController {
 
   public cancelEdit(): void {
     if (!this._input) return;
-
+    // console.log("hello")
     this._input.style.display = 'none';
     this._editingCell = null;
   }
@@ -347,7 +378,7 @@ class ExcelGrid implements GridController {
       }
     }
 
-    const newValue: CellData = { ...oldValue, value: cellValueToStore, row, col };
+    const newValue: CellData = { ...oldValue, value: cellValueToStore.toString(), row, col };
     const command = new SetCellCommand(
       (r, c, cellDataPayload) => {
         this.data.setCellData(r, c, cellDataPayload);
