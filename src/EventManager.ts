@@ -45,7 +45,7 @@ export class EventManager {
                 this.controller.commitEdit();
             }
             const { x, y } = this.LocalCord(event);
-            
+
             this.controller.isDragging = true;
 
             const cell = this.controller.getSelectedCell(x, y);
@@ -80,7 +80,7 @@ export class EventManager {
                 return;
 
             }
-            
+
         })
     }
 
@@ -157,31 +157,21 @@ export class EventManager {
             }
 
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-                const rect = this.canvas.getBoundingClientRect();
-
                 const currentCell = this.controller.selectedFirst || { row: 0, col: 0 };
                 let nextRow = currentCell.row;
                 let nextCol = currentCell.col;
                 switch (key) {
                     case 'ArrowUp':
                         nextRow = Math.max(0, nextRow - 1);
-                        this.controller.subtractScrollY(nextRow);
-                        this.controller.refresh();
                         break;
                     case 'ArrowDown':
                         nextRow = Math.min(this.rowCount - 1, nextRow + 1);
-                        this.controller.addScrollY(nextRow);
-                        this.controller.refresh();
                         break;
                     case 'ArrowLeft':
                         nextCol = Math.max(0, nextCol - 1);
-                        this.controller.subtractScrollX(nextCol);
-                        this.controller.refresh();
                         break;
                     case 'ArrowRight':
                         nextCol = Math.min(this.colCount - 1, nextCol + 1);
-                        this.controller.addScrollX(nextCol);
-                        this.controller.refresh();
                         break;
                 }
 
@@ -189,12 +179,11 @@ export class EventManager {
                     event.preventDefault();
                     this.controller.selectedFirst = { row: nextRow, col: nextCol };
                     this.controller.selectedLast = { row: nextRow, col: nextCol };
-
                     this.controller.selectCell(nextRow, nextCol);
+                    this.controller.ensureCellVisible(nextRow, nextCol);
                     this.controller.refresh();
                 }
             }
-
             if (key === "Enter") {
                 const cell = this.controller.getActiveCell();
                 if (cell) {

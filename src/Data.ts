@@ -13,6 +13,7 @@ export class Data {
     public setData(row: number, col: number, value: string, style?: CellStyle): void {
         const key = `${row},${col}`;
         this._data.set(key, { value: value, style:style?style: { background: "#fff" },row,col } as CellData);
+        // console.log(this._data);
     }
 
     public setCellData(row: number, col: number, data: CellData | null): void {

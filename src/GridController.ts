@@ -3,11 +3,12 @@ export interface GridController {
     getScrollX(): number;
     getScrollY(): number;
     setScroll(x: number, y: number): void;
-    addScrollX(col: number): void;
-    addScrollY(row: number): void;
-    subtractScrollX(col: number): void
-    subtractScrollY(row: number): void  
-    
+    // addScrollX(col: number): void;
+    // addScrollY(row: number): void;
+    // subtractScrollX(col: number): void
+    // subtractScrollY(row: number): void  
+    ensureCellVisible(row: number, col: number): void ;
+
     getResizingTarget(x: number, y: number): { type: 'col' | 'row'; index: number } | null;
     getSelectedCell(x: number, y: number): { row: number; col: number } | null;
     
