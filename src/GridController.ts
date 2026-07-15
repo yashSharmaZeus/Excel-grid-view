@@ -3,19 +3,16 @@ export interface GridController {
     getScrollX(): number;
     getScrollY(): number;
     setScroll(x: number, y: number): void;
-    // addScrollX(col: number): void;
-    // addScrollY(row: number): void;
-    // subtractScrollX(col: number): void
-    // subtractScrollY(row: number): void  
-    ensureCellVisible(row: number, col: number): void ;
+
+    ensureCellVisible(row: number, col: number): void;
 
     getResizingTarget(x: number, y: number): { type: 'col' | 'row'; index: number } | null;
     getSelectedCell(x: number, y: number): { row: number; col: number } | null;
-    
+
     getSelectedRow(y: number): number;
     getSelectedCol(x: number): number;
 
-    getActiveCell(): {row:number,col:number}| null;
+    getActiveCell(): { row: number, col: number } | null;
 
     startResize(type: 'col' | 'row', index: number, x: number, y: number): void;
     updateResize(x: number, y: number): void;
@@ -28,7 +25,7 @@ export interface GridController {
     selectedLast: { row: number; col: number } | null;
     startEdit(row: number, col: number): void;
     commitEdit(): void;
-    cancelEdit():void;
+    cancelEdit(): void;
     isEditing(): boolean;
     getInputElement(): HTMLInputElement | null;
 
