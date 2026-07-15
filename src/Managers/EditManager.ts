@@ -97,6 +97,7 @@ export class EditManager {
 
   public setCellValue(row: number, col: number, value: string): void {
     const oldValue = this.data.getData(row, col);
+    if((!oldValue && value.trim() == "") || oldValue?.value == value) return
     let cellValueToStore = value;
     if (value.trim().startsWith("=")) {
       const normalizedFormula = this.engine.normalizeFormula(value);
