@@ -1,5 +1,4 @@
-import type { CellData, CellStyle } from "./Type.js";
-
+import { CellData, CellStyle } from "./Model/CellModel.js";
 export class Data {
     private _data: Map<string, CellData>;
     constructor() {
@@ -12,7 +11,7 @@ export class Data {
 
     public setData(row: number, col: number, value: string, style?: CellStyle): void {
         const key = `${row},${col}`;
-        this._data.set(key, { value: value, style:style?style: { background: "#fff" },row,col } as CellData);
+        this._data.set(key, new CellData(value, row, col, style ?? new CellStyle("#fff")));
         // console.log(this._data);
     }
 
@@ -25,7 +24,7 @@ export class Data {
         }
     }
 
-    public clearData():void{
+    public clearData(): void {
         this._data.clear();
     }
 

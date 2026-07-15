@@ -1,4 +1,4 @@
-export interface GridController {
+export interface IGridController {
 
     getScrollX(): number;
     getScrollY(): number;

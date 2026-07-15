@@ -1,5 +1,5 @@
 import { Data } from "./Data.js";
-import { cellRefToRowCol, rowColToCellRef } from "./CellRef.js";
+import { CellReferenceCompute } from "./Helper/CellRef.js";
 
 export type CellValue = number | string | null;
 
@@ -51,7 +51,7 @@ export class FormulaEngine {
   getAllValues(): Record<string, CellValue> {
     const result: Record<string, CellValue> = {};
     for (const [row, col] of this.data.entries()) {
-      result[rowColToCellRef(row, col)] = this.getValueAt(row, col);
+      result[CellReferenceCompute.rowColToCellRef(row, col)] = this.getValueAt(row, col);
     }
     return result;
   }
@@ -69,10 +69,9 @@ export class FormulaEngine {
 
     let result: unknown;
     try {
-      // eslint-disable-next-line no-new-func
       result = Function(`"use strict"; return (${substituted.replace(/\^/g, "**")});`)();
     } catch (e) {
-      if (e instanceof RangeError) throw e; // Let call stack error bubble up
+      if (e instanceof RangeError) throw e; 
       throw new FormulaError(`#ERROR! Could not evaluate "${expr}"`);
     }
 
@@ -83,7 +82,7 @@ export class FormulaEngine {
 
   private getNumber(ref: string): number {
     if (!CELL_REF_RE.test(ref)) throw new FormulaError(`Unknown name "${ref}"`);
-    const { row, col } = cellRefToRowCol(ref);
+    const { row, col } = CellReferenceCompute.cellRefToRowCol(ref);
     const value = this.resolveCell(row, col);
     if (value === null) return 0;
     if (typeof value === "string") throw new FormulaError(`#VALUE! ${ref} contains text`);

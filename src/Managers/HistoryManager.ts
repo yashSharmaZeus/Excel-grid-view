@@ -1,9 +1,5 @@
-import type { CellData } from "./Type.js";
-
-export interface ICommand {
-    undo(): void;
-    redo(): void;
-}
+import type { CellData } from "../Model/CellModel.js";
+import type { ICommand } from "../Interface/ICommand.js";
 
 export class SetCellCommand implements ICommand {
     constructor(

@@ -1,4 +1,4 @@
-import type { CellData } from './Type.js'
+// import type { CellData } from './cellModel.js'
 import { Data } from './Data.js';
 
 export interface RenderSetting {
@@ -153,7 +153,7 @@ export class Render {
 
                 if (cellData && cellData.value) {
                     ctx.fillStyle = '#000000';
-                    ctx.fillText(cellData.value, x + 5, y + (h / 2));
+                    ctx.fillText(cellData.value, x + 5, y + (h / 2), w-5);
                 }
 
             }

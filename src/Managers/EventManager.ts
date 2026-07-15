@@ -1,9 +1,8 @@
-import type { GridController } from "./GridController.js";
-
+import type { IGridController } from "../Interface/IGridController.js";
 export class EventManager {
     constructor(
         private canvas: HTMLCanvasElement,
-        private controller: GridController,
+        private controller: IGridController,
         private headerWidth: number,
         private headerHeight: number,
         private rowCount: number,
@@ -49,7 +48,9 @@ export class EventManager {
             this.controller.isDragging = true;
 
             const cell = this.controller.getSelectedCell(x, y);
+            
             if (cell) {
+                this.controller.ensureCellVisible(cell.row,cell.col);
                 this.controller.selectedFirst = { row: cell.row, col: cell.col };
                 this.controller.selectedLast = { row: cell.row, col: cell.col };
                 this.controller.selectCell(cell.row, cell.col);
@@ -64,8 +65,8 @@ export class EventManager {
             if (y < 0) {
                 let col = this.controller.getSelectedCol(x)
                 this.controller.selectedFirst = { row: 0, col: col };
-                this.controller.selectCell(0, col);
                 this.controller.selectedLast = { row: this.rowCount, col: col };
+                this.controller.selectCell(0, col);
                 this.controller.summary();
                 this.controller.refresh();
                 return;
