@@ -63,7 +63,6 @@ Directory structure:
 - **Encapsulation:** every manager keeps its state (_scrollX, _resizing, _selectedCell, _editingCell) private, exposed only through methods. 
 - **Abstraction:** IGridController and ICommand define contracts; EventManager and HistoryManager code against those contracts, not concrete classes.
 - **Polymorphism:** HistoryManager.execute(command) calls execute()/undo() on whatever ICommand it's given (SetCellCommand, SetResizeCommand) without knowing which one it is.
-- **Composition over inheritance:** ExcelGrid has a `ViewportManager`, `ResizeManager`, `SelectionManager`, `EditManager`, `Render`, `FormulaEngine`, `SummaryCalculator`, `HistoryManager`, rather than inheriting from any of them. There's no natural "is-a" hierarchy among these concerns, so composition keeps each piece independently testable.
 - **Constructor-based dependency injection:** managers receive their collaborators (`ViewportManager`, `HistoryManager`, a `refresh` callback) through the constructor instead of instantiating them internally.
 
 ### SOLID principle applied
