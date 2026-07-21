@@ -1,4 +1,4 @@
-import type { Data } from "./Data.js";
+import type { Data } from "../Data.js";
 
 export class SummaryCalculator {
     private col1: number = -1;

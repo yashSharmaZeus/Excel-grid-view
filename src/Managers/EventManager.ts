@@ -1,14 +1,25 @@
-import type { IGridController } from "../Interface/IGridController.js";
-export class EventManager {
-    constructor(
-        private canvas: HTMLCanvasElement,
-        private controller: IGridController,
-        private headerWidth: number,
-        private headerHeight: number,
-        private rowCount: number,
-        private colCount: number,
-    ) { }
+import { SelectionManager } from "./SelectionManager.js";
+import { ViewportManager } from "./ViewportManager.js";
+import { ResizeManager } from "./ResizeManager.js";
+import { EditManager } from "./EditManager.js";
+import { SummaryCalculator } from "../Helper/SummaryCalculator.js";
 
+interface EventManagerConfig {
+  canvas: HTMLCanvasElement;
+  selectionManager: SelectionManager;
+  viewPort: ViewportManager;
+  resizeManager: ResizeManager;
+  editManager: EditManager;
+  summaryCalculator: SummaryCalculator;
+  headerWidth: number;
+  headerHeight: number;
+  rowCount: number;
+  colCount: number;
+  onRefresh: () => void; // Standard naming convention for callbacks
+}
+
+export class EventManager {
+    constructor(private config: EventManagerConfig) {}
     public bind(): void {
         this.bindWheel();
         this.bindMouseDown();
@@ -19,65 +30,75 @@ export class EventManager {
         this.bindKeyboard();
     }
 
+    public summary(): void {
+    if (!this.config.selectionManager.selectedFirst || !this.config.selectionManager.selectedLast) return;
+    const col1 = this.config.selectionManager.selectedFirst.col;
+    const col2 = this.config.selectionManager.selectedLast.col;
+    const row1 = this.config.selectionManager.selectedFirst.row;
+    const row2 = this.config.selectionManager.selectedLast.row;
+    this.config.summaryCalculator.setValues(col1, col2, row1, row2);
+  }
+
     private LocalCord(event: MouseEvent): { x: number, y: number } {
-        const rect = this.canvas.getBoundingClientRect();
+        const rect = this.config.canvas.getBoundingClientRect();
         return {
-            x: event.clientX - this.headerWidth - rect.left,
-            y: event.clientY - this.headerHeight - rect.top,
+            x: event.clientX - this.config.headerWidth - rect.left,
+            y: event.clientY - this.config.headerHeight - rect.top,
         }
     }
 
     private bindWheel(): void {
-        this.canvas.addEventListener("wheel", (event) => {
+        this.config.canvas.addEventListener("wheel", (event) => {
             event.preventDefault();
 
-            const x = Math.max(0, this.controller.getScrollX() + event.deltaX);
-            const y = Math.max(0, this.controller.getScrollY() + event.deltaY);
-            this.controller.setScroll(x, y);
-            this.controller.refresh();
+            const x = Math.max(0, this.config.viewPort.getScrollX() + event.deltaX);
+            const y = Math.max(0, this.config.viewPort.getScrollY() + event.deltaY);
+            this.config.viewPort.setScroll(x, y);
+            this.config.onRefresh();
         }, { passive: false });
     }
 
     private bindMouseDown(): void {
-        this.canvas.addEventListener("mousedown", (event) => {
-            if (this.controller.isEditing()) {
-                this.controller.commitEdit();
+        this.config.canvas.addEventListener("mousedown", (event) => {
+            if (this.config.editManager.isEditing()) {
+                this.config.editManager.commitEdit();
             }
             const { x, y } = this.LocalCord(event);
 
-            this.controller.isDragging = true;
+            this.config.selectionManager.isDragging = true;
 
-            const cell = this.controller.getSelectedCell(x, y);
+            const cell = this.config.selectionManager.getSelectedCell(x, y);
             
             if (cell) {
-                this.controller.ensureCellVisible(cell.row,cell.col);
-                this.controller.selectedFirst = { row: cell.row, col: cell.col };
-                this.controller.selectedLast = { row: cell.row, col: cell.col };
-                this.controller.selectCell(cell.row, cell.col);
-                this.controller.summary();
-                this.controller.refresh();
+                this.config.viewPort.ensureCellVisible(cell.row,cell.col);
+                this.config.selectionManager.selectedFirst = { row: cell.row, col: cell.col };
+                this.config.selectionManager.selectedLast = { row: cell.row, col: cell.col };
+                this.config.selectionManager.selectCell(cell.row, cell.col);
+                this.summary();
+                this.config.summaryCalculator.setValues
+                this.config.onRefresh();
             }
-            const target = this.controller.getResizingTarget(x, y);
+            const target = this.config.resizeManager.getResizingTarget(x, y);
             if (target) {
-                this.controller.startResize(target.type, target.index, x, y)
+                this.config.resizeManager.startResize(target.type, target.index, x, y)
                 return;
             }
             if (y < 0) {
-                let col = this.controller.getSelectedCol(x)
-                this.controller.selectedFirst = { row: 0, col: col };
-                this.controller.selectedLast = { row: this.rowCount, col: col };
-                this.controller.selectCell(0, col);
-                this.controller.summary();
-                this.controller.refresh();
+                let col = this.config.selectionManager.getSelectedCol(x)
+                this.config.selectionManager.selectedFirst = { row: 0, col: col };
+                this.config.selectionManager.selectedLast = { row: this.config.rowCount, col: col };
+                this.config.selectionManager.selectCell(0, col);
+                this.summary();
+                this.config.onRefresh();
                 return;
             }
             if (x < 0) {
-                let row = this.controller.getSelectedRow(y)
-                this.controller.selectedFirst = { row: row, col: 0 };
-                this.controller.selectCell(row, 0);
-                this.controller.selectedLast = { row: row, col: this.colCount };
-                this.controller.summary();
-                this.controller.refresh();
+                let row = this.config.selectionManager.getSelectedRow(y)
+                this.config.selectionManager.selectedFirst = { row: row, col: 0 };
+                this.config.selectionManager.selectCell(row, 0);
+                this.config.selectionManager.selectedLast = { row: row, col: this.config.colCount };
+                this.summary();
+                this.config.onRefresh();
                 return;
 
             }
@@ -86,11 +107,11 @@ export class EventManager {
     }
 
     private bindDblClick(): void {
-        this.canvas.addEventListener("dblclick", (event) => {
+        this.config.canvas.addEventListener("dblclick", (event) => {
             // const { x, y } = this.LocalCord(event);
-            const cell = this.controller.getActiveCell();
+            const cell = this.config.selectionManager.getActiveCell();
             if (cell) {
-                this.controller.startEdit(cell.row, cell.col);
+                this.config.editManager.startEdit(cell.row, cell.col);
             }
         })
     }
@@ -99,22 +120,22 @@ export class EventManager {
 
         window.addEventListener("mousemove", (event) => {
             const { x, y } = this.LocalCord(event);
-            if (this.controller.isResizing()) {
-                this.controller.updateResize(x, y);
-                this.controller.refresh();
+            if (this.config.resizeManager.isResizing()) {
+                this.config.resizeManager.updateResize(x, y);
+                this.config.onRefresh();
                 return;
             }
 
-            if (this.controller.isDragging) {
-                const cell = this.controller.getSelectedCell(x, y);
+            if (this.config.selectionManager.isDragging) {
+                const cell = this.config.selectionManager.getSelectedCell(x, y);
                 if (!cell) return;
-                this.controller.selectedLast = { row: cell.row, col: cell.col };
-                this.controller.summary();
-                this.controller.refresh();
+                this.config.selectionManager.selectedLast = { row: cell.row, col: cell.col };
+                this.summary();
+                this.config.onRefresh();
                 return;
             }
-            const target = this.controller.getResizingTarget(x, y);
-            this.canvas.style.cursor = target
+            const target = this.config.resizeManager.getResizingTarget(x, y);
+            this.config.canvas.style.cursor = target
                 ? (target.type === 'col' ? 'col-resize' : 'row-resize')
                 : 'cell';
         });
@@ -122,43 +143,43 @@ export class EventManager {
 
     private bindMouseUp(): void {
         window.addEventListener("mouseup", () => {
-            this.controller.endResize();
+            this.config.resizeManager.endResize();
         });
-        this.canvas.addEventListener("mouseup", () => {
-            this.controller.isDragging = false;
-            this.controller.summary();
+        this.config.canvas.addEventListener("mouseup", () => {
+            this.config.selectionManager.isDragging = false;
+            this.summary();
         })
     }
 
     private bindWindowResize(): void {
         window.addEventListener("resize", () => {
-            this.controller.handleWindowResize();
-            this.controller.refresh();
+            this.config.viewPort.resizeCanvas();
+            this.config.onRefresh();
         });
     }
 
     private bindKeyboard(): void {
         window.addEventListener("keydown", (event) => {
             const isMod = event.ctrlKey;
-            if (document.activeElement === this.controller.getInputElement()) return;
+            if (document.activeElement === this.config.editManager.getInputElement()) return;
             const key = event.key;
             if (isMod) {
                 const lowerKey = event.key.toLowerCase();
                 if (lowerKey === 'z' && !event.shiftKey) {
                     event.preventDefault();
-                    this.controller.undo();
-                    this.controller.refresh();
+                    this.config.editManager.undo();
+                    this.config.onRefresh();
 
                 }
                 else if ((lowerKey === 'z' && event.shiftKey) || lowerKey === 'y') {
                     event.preventDefault();
-                    this.controller.redo();
-                    this.controller.refresh();
+                    this.config.editManager.redo();
+                    this.config.onRefresh();
                 }
             }
 
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-                const currentCell = this.controller.selectedFirst || { row: 0, col: 0 };
+                const currentCell = this.config.selectionManager.selectedFirst || { row: 0, col: 0 };
                 let nextRow = currentCell.row;
                 let nextCol = currentCell.col;
                 switch (key) {
@@ -166,29 +187,29 @@ export class EventManager {
                         nextRow = Math.max(0, nextRow - 1);
                         break;
                     case 'ArrowDown':
-                        nextRow = Math.min(this.rowCount - 1, nextRow + 1);
+                        nextRow = Math.min(this.config.rowCount - 1, nextRow + 1);
                         break;
                     case 'ArrowLeft':
                         nextCol = Math.max(0, nextCol - 1);
                         break;
                     case 'ArrowRight':
-                        nextCol = Math.min(this.colCount - 1, nextCol + 1);
+                        nextCol = Math.min(this.config.colCount - 1, nextCol + 1);
                         break;
                 }
 
                 if (nextRow !== currentCell.row || nextCol !== currentCell.col) {
                     event.preventDefault();
-                    this.controller.selectedFirst = { row: nextRow, col: nextCol };
-                    this.controller.selectedLast = { row: nextRow, col: nextCol };
-                    this.controller.selectCell(nextRow, nextCol);
-                    this.controller.ensureCellVisible(nextRow, nextCol);
-                    this.controller.refresh();
+                    this.config.selectionManager.selectedFirst = { row: nextRow, col: nextCol };
+                    this.config.selectionManager.selectedLast = { row: nextRow, col: nextCol };
+                    this.config.selectionManager.selectCell(nextRow, nextCol);
+                    this.config.viewPort.ensureCellVisible(nextRow, nextCol);
+                    this.config.onRefresh();
                 }
             }
             if (key === "Enter") {
-                const cell = this.controller.getActiveCell();
+                const cell = this.config.selectionManager.getActiveCell();
                 if (cell) {
-                    this.controller.startEdit(cell.row, cell.col);
+                    this.config.editManager.startEdit(cell.row, cell.col);
                 }
             }
         })
