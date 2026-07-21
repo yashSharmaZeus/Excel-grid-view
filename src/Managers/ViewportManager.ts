@@ -14,6 +14,7 @@ export class ViewportManager {
     private _defaultColWidth: number = 100,
     private _headerWidth: number = 50,
     private _headerHeight: number = 25,
+    public onRefresh: () => void,
   ) { }
 
   public getScrollX(): number {
@@ -136,4 +137,9 @@ export class ViewportManager {
 
     this._ctx.scale(dpr, dpr);
   }
+
+  public setCursorStyle(style:string){
+    this._canvas.style.cursor = style;
+  }
+
 }

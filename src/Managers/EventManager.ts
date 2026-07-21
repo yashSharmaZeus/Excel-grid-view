@@ -1,25 +1,45 @@
 import { SelectionManager } from "./SelectionManager.js";
 import { ViewportManager } from "./ViewportManager.js";
-import { ResizeManager } from "./ResizeManager.js";
+// import { ResizeManager } from "./ResizeManager.js";
 import { EditManager } from "./EditManager.js";
 import { SummaryCalculator } from "../Helper/SummaryCalculator.js";
+import type { IMouseControl } from "../Interface/IMouseControl.js";
+import { RowResize } from "./RowResize.js";
+import { ColResize } from "./ColResize.js";
+import type { HistoryManager } from "./HistoryManager.js";
+import { CellSelect } from "./CellSelect.js";
+import { ColumnHeaderSelect } from "./ColHeaderSelect.js";
+import { RowHeaderSelect } from "./RowHeaderSelect.js";
 
 interface EventManagerConfig {
-  canvas: HTMLCanvasElement;
-  selectionManager: SelectionManager;
-  viewPort: ViewportManager;
-  resizeManager: ResizeManager;
-  editManager: EditManager;
-  summaryCalculator: SummaryCalculator;
-  headerWidth: number;
-  headerHeight: number;
-  rowCount: number;
-  colCount: number;
-  onRefresh: () => void; // Standard naming convention for callbacks
+    canvas: HTMLCanvasElement;
+    selectionManager: SelectionManager;
+    viewPort: ViewportManager;
+    editManager: EditManager;
+    summaryCalculator: SummaryCalculator;
+    history: HistoryManager,
+    headerWidth: number;
+    headerHeight: number;
+    rowCount: number;
+    colCount: number;
+    onRefresh: () => void;
 }
 
 export class EventManager {
-    constructor(private config: EventManagerConfig) {}
+    private mouseControllers: IMouseControl[];
+    private activeController: IMouseControl | null = null;
+
+    constructor(private config: EventManagerConfig) {
+        this.mouseControllers = [
+            new ColumnHeaderSelect(this.config.rowCount, this.config.selectionManager, this.config.viewPort,()=>this.summary()),
+            new RowHeaderSelect(this.config.colCount, this.config.selectionManager, this.config.viewPort,()=>this.summary()),
+            new RowResize(this.config.viewPort, this.config.history, this.config.rowCount),
+            new ColResize(this.config.viewPort, this.config.history, this.config.rowCount),
+            new CellSelect(this.config.viewPort, this.config.selectionManager,()=>this.summary()),
+        ]
+    }
+
+
     public bind(): void {
         this.bindWheel();
         this.bindMouseDown();
@@ -30,14 +50,19 @@ export class EventManager {
         this.bindKeyboard();
     }
 
+
+    private findController(x: number, y: number): IMouseControl | null {
+        return this.mouseControllers.find((s) => s.hitTest(x, y)) ?? null;
+    }
+
     public summary(): void {
-    if (!this.config.selectionManager.selectedFirst || !this.config.selectionManager.selectedLast) return;
-    const col1 = this.config.selectionManager.selectedFirst.col;
-    const col2 = this.config.selectionManager.selectedLast.col;
-    const row1 = this.config.selectionManager.selectedFirst.row;
-    const row2 = this.config.selectionManager.selectedLast.row;
-    this.config.summaryCalculator.setValues(col1, col2, row1, row2);
-  }
+        if (!this.config.selectionManager.selectedFirst || !this.config.selectionManager.selectedLast) return;
+        const col1 = this.config.selectionManager.selectedFirst.col;
+        const col2 = this.config.selectionManager.selectedLast.col;
+        const row1 = this.config.selectionManager.selectedFirst.row;
+        const row2 = this.config.selectionManager.selectedLast.row;
+        this.config.summaryCalculator.setValues(col1, col2, row1, row2);
+    }
 
     private LocalCord(event: MouseEvent): { x: number, y: number } {
         const rect = this.config.canvas.getBoundingClientRect();
@@ -65,50 +90,13 @@ export class EventManager {
             }
             const { x, y } = this.LocalCord(event);
 
-            this.config.selectionManager.isDragging = true;
-
-            const cell = this.config.selectionManager.getSelectedCell(x, y);
-            
-            if (cell) {
-                this.config.viewPort.ensureCellVisible(cell.row,cell.col);
-                this.config.selectionManager.selectedFirst = { row: cell.row, col: cell.col };
-                this.config.selectionManager.selectedLast = { row: cell.row, col: cell.col };
-                this.config.selectionManager.selectCell(cell.row, cell.col);
-                this.summary();
-                this.config.summaryCalculator.setValues
-                this.config.onRefresh();
-            }
-            const target = this.config.resizeManager.getResizingTarget(x, y);
-            if (target) {
-                this.config.resizeManager.startResize(target.type, target.index, x, y)
-                return;
-            }
-            if (y < 0) {
-                let col = this.config.selectionManager.getSelectedCol(x)
-                this.config.selectionManager.selectedFirst = { row: 0, col: col };
-                this.config.selectionManager.selectedLast = { row: this.config.rowCount, col: col };
-                this.config.selectionManager.selectCell(0, col);
-                this.summary();
-                this.config.onRefresh();
-                return;
-            }
-            if (x < 0) {
-                let row = this.config.selectionManager.getSelectedRow(y)
-                this.config.selectionManager.selectedFirst = { row: row, col: 0 };
-                this.config.selectionManager.selectCell(row, 0);
-                this.config.selectionManager.selectedLast = { row: row, col: this.config.colCount };
-                this.summary();
-                this.config.onRefresh();
-                return;
-
-            }
-
+            this.activeController = this.findController(x, y);
+            this.activeController?.onDown(x, y);
         })
     }
 
     private bindDblClick(): void {
         this.config.canvas.addEventListener("dblclick", (event) => {
-            // const { x, y } = this.LocalCord(event);
             const cell = this.config.selectionManager.getActiveCell();
             if (cell) {
                 this.config.editManager.startEdit(cell.row, cell.col);
@@ -117,38 +105,17 @@ export class EventManager {
     }
 
     private bindMouseMove(): void {
-
         window.addEventListener("mousemove", (event) => {
             const { x, y } = this.LocalCord(event);
-            if (this.config.resizeManager.isResizing()) {
-                this.config.resizeManager.updateResize(x, y);
-                this.config.onRefresh();
-                return;
-            }
-
-            if (this.config.selectionManager.isDragging) {
-                const cell = this.config.selectionManager.getSelectedCell(x, y);
-                if (!cell) return;
-                this.config.selectionManager.selectedLast = { row: cell.row, col: cell.col };
-                this.summary();
-                this.config.onRefresh();
-                return;
-            }
-            const target = this.config.resizeManager.getResizingTarget(x, y);
-            this.config.canvas.style.cursor = target
-                ? (target.type === 'col' ? 'col-resize' : 'row-resize')
-                : 'cell';
+            this.findController(x, y);
+            this.activeController?.onMove(x, y);
         });
     }
 
     private bindMouseUp(): void {
         window.addEventListener("mouseup", () => {
-            this.config.resizeManager.endResize();
+            this.activeController?.onUp();
         });
-        this.config.canvas.addEventListener("mouseup", () => {
-            this.config.selectionManager.isDragging = false;
-            this.summary();
-        })
     }
 
     private bindWindowResize(): void {
@@ -167,13 +134,13 @@ export class EventManager {
                 const lowerKey = event.key.toLowerCase();
                 if (lowerKey === 'z' && !event.shiftKey) {
                     event.preventDefault();
-                    this.config.editManager.undo();
+                    this.config.history.undo();
                     this.config.onRefresh();
 
                 }
                 else if ((lowerKey === 'z' && event.shiftKey) || lowerKey === 'y') {
                     event.preventDefault();
-                    this.config.editManager.redo();
+                    this.config.history.redo();
                     this.config.onRefresh();
                 }
             }

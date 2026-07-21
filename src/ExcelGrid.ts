@@ -5,7 +5,7 @@ import { EventManager } from "./Managers/EventManager.js";
 import { FormulaEngine } from "./FormulaEngine.js";
 import { SummaryCalculator } from "./Helper/SummaryCalculator.js";
 import { ViewportManager } from "./Managers/ViewportManager.js";
-import { ResizeManager } from "./Managers/ResizeManager.js";
+// import { ResizeManager } from "./Managers/ResizeManager.js";
 import { SelectionManager } from "./Managers/SelectionManager.js";
 import { EditManager } from "./Managers/EditManager.js";
 
@@ -30,7 +30,7 @@ class ExcelGrid {
   private renderer = new Render();
 
   private viewport: ViewportManager;
-  private resizeManager: ResizeManager;
+  // private resizeManager: ResizeManager;
   private selectionManager: SelectionManager;
   private editManager: EditManager;
 
@@ -45,10 +45,7 @@ class ExcelGrid {
 
     this.viewport = new ViewportManager(
       this._canvas, this._ctx, this._rowCount, this._columnCount,
-      this._defaultRowHeight, this._defaultColWidth, this._headerWidth, this._headerHeight,
-    );
-    this.resizeManager = new ResizeManager(
-      this.viewport, this.history, this._rowCount, this._columnCount, () => this.refresh(),
+      this._defaultRowHeight, this._defaultColWidth, this._headerWidth, this._headerHeight, () => this.refresh()
     );
     this.selectionManager = new SelectionManager(this.viewport);
     this.editManager = new EditManager(
@@ -60,9 +57,9 @@ class ExcelGrid {
       canvas: this._canvas,
       selectionManager: this.selectionManager,
       viewPort: this.viewport,
-      resizeManager: this.resizeManager,
       editManager: this.editManager,
       summaryCalculator: this._summaryCalculator,
+      history: this.history,
       headerWidth: this._headerWidth,
       headerHeight: this._headerHeight,
       rowCount: this._rowCount,

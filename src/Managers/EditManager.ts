@@ -121,11 +121,11 @@ export class EditManager {
     this.history.execute(command);
   }
 
-  public undo(){
-    this.history.undo();
-  }
+  // public undo(){
+  //   this.history.undo();
+  // }
 
-  public redo(){
-    this.history.redo();
-  }
+  // public redo(){
+  //   this.history.redo();
+  // }
 }
