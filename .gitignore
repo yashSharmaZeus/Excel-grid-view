@@ -2,3 +2,5 @@ node_modules/
 DummyData/
 dist/
 .vscode/
+dummy_data_3.json
+dummy_data_4.json

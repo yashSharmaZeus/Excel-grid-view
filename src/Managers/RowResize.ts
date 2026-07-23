@@ -5,7 +5,7 @@ import { HistoryManager, SetResizeCommand } from "./HistoryManager.js";
 export class RowResize implements IMouseControl {
     private _activeRow: number = -1;
     private _startResizeSize: number = 0;
-    private _resizing: {index:number, startPos: number; startSize: number } | null = null;
+    private _resizing: { index: number, startPos: number; startSize: number } | null = null;
 
 
     constructor(
@@ -36,7 +36,7 @@ export class RowResize implements IMouseControl {
         const startSize = this.viewport.getRowHeight(this._activeRow);
         const startPos = y;
         const index = this._activeRow;
-        this._resizing = {index, startPos, startSize };
+        this._resizing = { index, startPos, startSize };
         this._startResizeSize = startSize;
     }
 
@@ -55,7 +55,7 @@ export class RowResize implements IMouseControl {
 
         if (finalSize !== this._startResizeSize) {
             const resizeCommand = new SetResizeCommand(
-                ( i, s) => {
+                (i, s) => {
                     this.viewport.setRowHeight(i, s!);
                 },
                 this._activeRow,

@@ -17,7 +17,7 @@ interface EventManagerConfig {
     viewPort: ViewportManager;
     editManager: EditManager;
     summaryCalculator: SummaryCalculator;
-    history: HistoryManager,
+    history: HistoryManager;
     headerWidth: number;
     headerHeight: number;
     rowCount: number;
@@ -31,11 +31,11 @@ export class EventManager {
 
     constructor(private config: EventManagerConfig) {
         this.mouseControllers = [
-            new ColumnHeaderSelect(this.config.rowCount, this.config.selectionManager, this.config.viewPort,()=>this.summary()),
-            new RowHeaderSelect(this.config.colCount, this.config.selectionManager, this.config.viewPort,()=>this.summary()),
-            new RowResize(this.config.viewPort, this.config.history, this.config.rowCount),
             new ColResize(this.config.viewPort, this.config.history, this.config.rowCount),
-            new CellSelect(this.config.viewPort, this.config.selectionManager,()=>this.summary()),
+            new RowResize(this.config.viewPort, this.config.history, this.config.rowCount),
+            new ColumnHeaderSelect(this.config.rowCount, this.config.selectionManager, this.config.viewPort,()=>this.summary(true)),
+            new RowHeaderSelect(this.config.colCount, this.config.selectionManager, this.config.viewPort,()=>this.summary(true)),
+            new CellSelect(this.config.viewPort, this.config.selectionManager,()=>this.summary(false)),
         ]
     }
 
@@ -55,13 +55,13 @@ export class EventManager {
         return this.mouseControllers.find((s) => s.hitTest(x, y)) ?? null;
     }
 
-    public summary(): void {
+    public summary(flag:boolean): void {
         if (!this.config.selectionManager.selectedFirst || !this.config.selectionManager.selectedLast) return;
         const col1 = this.config.selectionManager.selectedFirst.col;
         const col2 = this.config.selectionManager.selectedLast.col;
         const row1 = this.config.selectionManager.selectedFirst.row;
         const row2 = this.config.selectionManager.selectedLast.row;
-        this.config.summaryCalculator.setValues(col1, col2, row1, row2);
+        this.config.summaryCalculator.setValues(col1, col2, row1, row2,flag);
     }
 
     private LocalCord(event: MouseEvent): { x: number, y: number } {
@@ -84,7 +84,7 @@ export class EventManager {
     }
 
     private bindMouseDown(): void {
-        this.config.canvas.addEventListener("mousedown", (event) => {
+        this.config.canvas.addEventListener("pointerdown", (event) => {
             if (this.config.editManager.isEditing()) {
                 this.config.editManager.commitEdit();
             }

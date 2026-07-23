@@ -29,33 +29,36 @@ open `index.html` in browser. Use **File** button in footer to load json dataset
 ### Folder and class structure
 ```bash
 Directory structure:
-├── README.md
-├── .gitignore
-├── index.html
-├── package.json
-├── tsconfig.json
-└── src/
-    ├── Data.ts
-    ├── ExcelGrid.ts
-    ├── FormulaEngine.ts
-    ├── index.ts
-    ├── Render.ts
-    ├── SummaryCalculator.ts
-    ├── Helper/
-    │   └── CellRef.ts
-    ├── Interface/
-    │   ├── ICommand.ts
-    │   └── IGridController.ts
-    ├── Managers/
-    │   ├── EditManager.ts
-    │   ├── EventManager.ts
-    │   ├── HistoryManager.ts
-    │   ├── ResizeManager.ts
-    │   ├── SelectionManager.ts
-    │   └── ViewportManager.ts
-    └── Model/
-        └── CellModel.ts
-
+    ├── README.md
+    ├── d2.json
+    ├── index.html
+    ├── package.json
+    ├── tsconfig.json
+    └── src/
+        ├── Data.ts
+        ├── ExcelGrid.ts
+        ├── FormulaEngine.ts
+        ├── index.ts
+        ├── Render.ts
+        ├── Helper/
+        │   ├── CellRef.ts
+        │   └── SummaryCalculator.ts
+        ├── Interface/
+        │   ├── ICommand.ts
+        │   └── IMouseControl.ts
+        ├── Managers/
+        │   ├── CellSelect.ts
+        │   ├── ColHeaderSelect.ts
+        │   ├── ColResize.ts
+        │   ├── EditManager.ts
+        │   ├── EventManager.ts
+        │   ├── HistoryManager.ts
+        │   ├── RowHeaderSelect.ts
+        │   ├── RowResize.ts
+        │   ├── SelectionManager.ts
+        │   └── ViewportManager.ts
+        └── Model/
+            └── CellModel.ts
 ```
 
 ### OOP Concepts Applied

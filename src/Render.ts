@@ -45,6 +45,28 @@ export class Render {
         ctx.fillStyle = '#b6d3c36c'
         ctx.fillRect(x, y, w, h);
     }
+
+    private drawHeaderCell(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, w: number, color: string, text: string): void {
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "#bcbcbc";
+        ctx.lineWidth = 1;
+        ctx.fillStyle = '#000000'
+        ctx.strokeRect(x,y, w, h);
+        ctx.fillText(text, x+(w/2), y + (h / 2));
+    }
+    
+    private drawCell(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, w: number, fillColor: string,strokeColor:string, text: string): void {
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1;
+        ctx.fillStyle = '#000000'
+        ctx.strokeRect(x,y, w, h);
+        ctx.fillText(text, x + 5, y + (h / 2), w - 5);
+        
+    }
+
     public render(setting: RenderSetting): void {
 
         const {
@@ -114,7 +136,7 @@ export class Render {
             ctx.fillStyle = '#b6d3c36c'
         }
 
-        
+
         if (setting.selectedCell) {
             const w = setting.getColWidth(setting.selectedCell.col);
             const h = setting.getRowHeight(setting.selectedCell.row);
@@ -131,7 +153,7 @@ export class Render {
                 input.style.left = selectX + 'px';
                 input.style.top = selectY + 'px';
             }
-            if(!selectedFirst && !selectedLast){
+            if (!selectedFirst && !selectedLast) {
                 this.colHeaderSelection.w = w;
                 this.rowHeaderSelection.h = h;
             }
@@ -147,37 +169,15 @@ export class Render {
                 const w = setting.getColWidth(c);
 
                 const cellData = data.getData(r, c);
-                ctx.strokeStyle = "#aeaeae";
-                ctx.lineWidth = 0.5;
-                ctx.strokeRect(Math.floor(x) + 0.5, Math.floor(y) + 0.5, w, h);
-
-                if (cellData && cellData.value) {
-                    ctx.fillStyle = '#000000';
-                    ctx.fillText(cellData.value, x + 5, y + (h / 2), w-5);
-                }
-
+                this.drawCell(ctx, Math.floor(x) + 0.5, Math.floor(y) + 0.5, h,w,"#dedede00", "#aeaeae", cellData?.value || "");
             }
 
-
-            ctx.fillStyle = '#f5f5f5'
-            ctx.fillRect(0, Math.floor(y) + 0.5, headerWidth, h)
-            ctx.strokeStyle = "#bcbcbc";
-            ctx.lineWidth = 1;
-            ctx.fillStyle = '#000000'
-            ctx.strokeRect(0, Math.floor(y) + 0.5, headerWidth, h);
-            ctx.fillText((r + 1).toString(), 20, y + (setting.headerHeight / 2));
+            this.drawHeaderCell(ctx, 0, Math.floor(y) + 0.5, h, headerWidth, "#f5f5f5", (r + 1).toString());
         }
-
+        
         for (let c = startCol; c <= endCol; c++) {
             const x = setting.getColX(c) + headerWidth - scrollX;
             const w = setting.getColWidth(c);
-
-            ctx.fillStyle = '#f5f5f5'
-            ctx.fillRect(Math.floor(x) + 0.5, 0, w, headerHeight)
-            ctx.strokeStyle = "#bcbcbc";
-            ctx.lineWidth = 1;
-            ctx.fillStyle = '#000000'
-            ctx.strokeRect(Math.floor(x) + 0.5, 0, w, headerHeight);
             let ch: string;
             if (c < 26) {
                 ch = String.fromCharCode(c + 65);
@@ -185,9 +185,10 @@ export class Render {
                 let remainder = c % 26;
                 ch = String.fromCharCode((c / 26) + 64) + String.fromCharCode(remainder + 65);
             }
-            ctx.fillText(ch, x + (w / 2), (setting.headerHeight / 2));
+            this.drawHeaderCell(ctx,Math.floor(x) + 0.5, 0, headerHeight, w, "#f5f5f5", ch);
         }
-        this.drawHeaderSelection(ctx, this.rowHeaderSelection.x, this.rowHeaderSelection.y, this.rowHeaderSelection.w,  this.rowHeaderSelection.h);
+
+        this.drawHeaderSelection(ctx, this.rowHeaderSelection.x, this.rowHeaderSelection.y, this.rowHeaderSelection.w, this.rowHeaderSelection.h);
         this.drawHeaderSelection(ctx, this.colHeaderSelection.x, this.colHeaderSelection.y, this.colHeaderSelection.w, this.colHeaderSelection.h);
 
         ctx.strokeStyle = '#bcbcbc';
@@ -198,3 +199,4 @@ export class Render {
         ctx.restore();
     }
 }
+
